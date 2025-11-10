@@ -1,0 +1,110 @@
+package com.home.knowledge.post;
+
+import com.home.knowledge.comment.CommentRepository;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.util.*;
+
+@Controller
+public class PostController {
+
+    private final PostRepository repository;
+    private final CommentRepository commentRepository;
+
+    public PostController(PostRepository repository, CommentRepository commentRepository) {
+        this.repository = repository;
+        this.commentRepository = commentRepository;
+    }
+
+    @GetMapping("/")
+    public String timeline(Model model) {
+        var posts = repository.findAll();
+        model.addAttribute("posts", posts);
+        model.addAttribute("filterUser", null);
+        return "timeline";
+    }
+
+    @GetMapping("/users/{username}")
+    public String userTimeline(@PathVariable String username, Model model) {
+        var posts = repository.findByUsername(username);
+        model.addAttribute("posts", posts);
+        model.addAttribute("filterUser", username);
+        return "timeline";
+    }
+
+    @PostMapping("/posts")
+    public String create(
+            @RequestParam(required = false) String title,
+            @RequestParam String content,
+            @RequestParam(required = false, name = "imageUrl") String imageUrl,
+            jakarta.servlet.http.HttpSession session,
+            RedirectAttributes redirectAttributes
+    ) {
+        String loginUser = (String) session.getAttribute("loginUser");
+        if (!StringUtils.hasText(loginUser)) {
+            redirectAttributes.addFlashAttribute("error", "謚慕ｨｿ縺吶ｋ縺ｫ縺ｯ繝ｭ繧ｰ繧､繝ｳ縺悟ｿ・ｦ√〒縺・);
+            return "redirect:/login";
+        }
+        if (!StringUtils.hasText(content)) {
+            redirectAttributes.addFlashAttribute("error", "蜀・ｮｹ繧貞・蜉帙＠縺ｦ縺上□縺輔＞");
+            return "redirect:/posts/new";
+        }
+        var post = repository.save(loginUser.trim(), (title != null ? title.trim() : null), content.trim(), (imageUrl != null ? imageUrl.trim() : null));
+        return "redirect:/posts/" + post.getId();
+    }
+
+    @PostMapping("/comments")
+    public String addComment(
+            @RequestParam long postId,
+            @RequestParam String content,
+            jakarta.servlet.http.HttpSession session,
+            RedirectAttributes redirectAttributes
+    ) {
+        String loginUser = (String) session.getAttribute("loginUser");
+        if (!StringUtils.hasText(loginUser)) {
+            redirectAttributes.addFlashAttribute("error", "繧ｳ繝｡繝ｳ繝医☆繧九↓縺ｯ繝ｭ繧ｰ繧､繝ｳ縺悟ｿ・ｦ√〒縺・);
+            return "redirect:/login";
+        }
+        if (postId <= 0 || !StringUtils.hasText(content)) {
+            redirectAttributes.addFlashAttribute("error", "繧ｳ繝｡繝ｳ繝亥・螳ｹ繧貞・蜉帙＠縺ｦ縺上□縺輔＞");
+            return "redirect:/posts/" + postId;
+        }
+        commentRepository.save(postId, loginUser.trim(), content.trim());
+        return "redirect:/posts/" + postId;
+    }
+
+    private Map<Long, List<com.home.knowledge.comment.Comment>> loadCommentsMap(List<Post> posts) {
+        Set<Long> ids = new LinkedHashSet<>();
+        for (Post p : posts) ids.add(p.getId());
+        Map<Long, List<com.home.knowledge.comment.Comment>> map = commentRepository.findByPostIds(ids);
+        for (Long id : ids) map.computeIfAbsent(id, k -> new ArrayList<>());
+        return map;
+    }
+
+    @GetMapping("/posts/{id}")
+    public String detail(@PathVariable long id, Model model, RedirectAttributes redirectAttributes) {
+        var opt = repository.findById(id);
+        if (opt.isEmpty()) {
+            redirectAttributes.addFlashAttribute("error", "Post not found");
+            return "redirect:/";
+        }
+        var post = opt.get();
+        model.addAttribute("post", post);
+        model.addAttribute("comments", commentRepository.findByPostId(id));
+        return "post_detail";
+    }
+
+    @GetMapping("/posts/new")
+    public String newPost(Model model) {
+        return "post_new";
+    }
+
+    
+}

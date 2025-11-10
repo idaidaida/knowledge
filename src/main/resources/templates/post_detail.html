@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title th:text="${post.title} ?: '記事'">記事</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900">
+
+<header class="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-gray-200">
+  <div class="mx-auto max-w-md w-full px-4 h-12 flex items-center justify-between">
+    <a href="/" class="text-sm text-blue-600">ホーム</a>
+    <h1 class="text-base font-semibold">記事</h1>
+    <a href="/logout" class="text-sm text-gray-600">ログアウト</a>
+  </div>
+</header>
+
+<main class="mx-auto max-w-md w-full px-4 pb-28 pt-3">
+
+  <article class="rounded-xl bg-white border border-gray-200 shadow-sm p-3">
+    <img th:if="${!#strings.isEmpty(post.imageUrl)}" th:src="${post.imageUrl}"
+         alt="cover" class="w-full max-h-80 object-cover rounded-md bg-gray-100" />
+
+    <div class="mt-2 text-xs text-gray-500">
+      <a th:href="@{'/users/' + ${post.username}}" th:text="${post.username}" class="underline underline-offset-2">username</a>
+      <span class="mx-1">·</span>
+      <span th:text="${#dates.format(post.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
+    </div>
+
+    <div class="mt-1 flex items-center gap-3" th:if="${session.loginUser} == ${post.username}">
+      <a th:href="@{'/posts/' + ${post.id} + '/edit'}" class="text-sm text-gray-600 underline underline-offset-2">編集</a>
+      <form th:action="@{'/posts/' + ${post.id} + '/delete'}" method="post">
+        <button type="submit" class="text-sm text-red-600">削除</button>
+      </form>
+    </div>
+
+    <h2 th:if="${post.title}" th:text="${post.title}"
+        class="mt-1 text-lg font-semibold"></h2>
+    <div class="mt-2 whitespace-pre-line text-[15px] text-gray-800" th:text="${post.content}"></div>
+    <div class="mt-3">
+      <a th:href="${post.linkUrl}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-sm text-blue-600 underline underline-offset-2">ニュースを開く</a>
+    </div>
+  </article>
+
+  <section class="mt-4">
+    <h3 class="text-sm font-semibold text-gray-700">コメント</h3>
+    <div th:if="${#lists.isEmpty(comments)}" class="text-sm text-gray-500 py-3">まだコメントはありません</div>
+
+    <div th:each="c : ${comments}" class="border-b border-gray-200 py-3">
+      <div class="min-w-0">
+        <div class="text-xs text-gray-500">
+          <span class="font-medium text-gray-700" th:text="${c.username}"></span>
+          <span class="mx-1">·</span>
+          <span th:text="${#dates.format(c.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
+        </div>
+        <div class="mt-1 whitespace-pre-line text-[15px] text-gray-800" th:text="${c.content}"></div>
+        <div class="mt-1 text-xs" th:if="${session.loginUser} == ${c.username}">
+          <a th:href="@{'/comments/' + ${c.id} + '/edit'}" class="text-gray-500 underline underline-offset-2">編集</a>
+          <form th:action="@{'/comments/' + ${c.id} + '/delete'}" method="post" class="inline">
+            <button type="submit" class="text-red-600 ml-3">削除</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div th:if="${session.loginUser} == null" class="mt-4 rounded-xl bg-white border border-gray-200 shadow-sm p-3 text-center">
+      <p class="text-sm text-gray-700">コメントするにはログインしてください。</p>
+      <a href="/login" class="mt-2 inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm active:bg-blue-700">ログインへ</a>
+    </div>
+
+    <form th:if="${session.loginUser} != null" method="post" action="/comments" class="mt-4 rounded-xl bg-white border border-gray-200 shadow-sm p-3 space-y-2">
+      <input type="hidden" name="postId" th:value="${post.id}" />
+      <div class="text-sm text-gray-600">コメント投稿者: <span class="font-medium text-gray-800" th:text="${session.loginUser}"></span></div>
+      <label class="block text-sm text-gray-700 mb-1">コメント（改行のみ対応）</label>
+      <textarea name="content" required placeholder="コメントを入力..."
+                class="w-full h-24 resize-y rounded-md border border-gray-300 px-3 py-2 text-[15px] focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+      <div class="flex justify-end">
+        <button type="submit" class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm active:bg-blue-700">コメントする</button>
+      </div>
+    </form>
+  </section>
+
+</main>
+
+<nav class="fixed bottom-0 inset-x-0 z-20 bg-white/95 backdrop-blur border-t border-gray-200">
+  <div class="mx-auto max-w-md w-full px-8 h-14 grid grid-cols-3 items-center text-xs text-gray-600">
+    <a href="/" class="justify-self-start inline-flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" class="w-5 h-5"><path d="M11.47 3.84a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 1 1-1.06 1.06L12 5.06 5.03 12l-.53-.53c-.3-.3-.3-.79 0-1.09l7-7.04z"/><path d="M4.5 12.75l7.28-7.28a.75.75 0 0 1 1.06 0l6.66 6.66v6.62a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 18.75v-6z"/></svg>
+      <span>ホーム</span>
+    </a>
+    <a href="/posts/new" class="justify-self-center -mt-8 inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg active:bg-blue-700" aria-label="投稿する">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7"><path fill-rule="evenodd" d="M12 4.5a.75.75 0 01.75.75v6h6a.75.75 0 010 1.5h-6v6a.75.75 0 01-1.5 0v-6h-6a.75.75 0 010-1.5h6v-6A.75.75 0 0112 4.5z" clip-rule="evenodd"/></svg>
+    </a>
+    <a th:href="@{'/users/' + ${session.loginUser}}" class="justify-self-end inline-flex items-center gap-2">
+      <span>自分</span>
+    </a>
+  </div>
+</nav>
+
+</body>
+</html>
+

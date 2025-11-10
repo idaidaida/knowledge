@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: knowledge
+  h2:
+    console:
+      enabled: true
+  thymeleaf:
+    cache: false

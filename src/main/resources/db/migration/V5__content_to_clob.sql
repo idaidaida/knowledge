@@ -1,0 +1,3 @@
+ALTER TABLE posts ALTER COLUMN content CLOB;
+ALTER TABLE comments ALTER COLUMN content CLOB;
+
