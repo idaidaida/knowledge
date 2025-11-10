@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS reads (
+    post_id BIGINT NOT NULL,
+    username VARCHAR(50) NOT NULL,
+    read_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT pk_reads PRIMARY KEY (post_id, username),
+    CONSTRAINT fk_reads_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+);
+

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>コメントを編集</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900">
+
+<header class="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-gray-200">
+  <div class="mx-auto max-w-md w-full px-4 h-12 flex items-center justify-between">
+    <a th:href="@{'/posts/' + ${comment.postId}}" class="text-sm text-blue-600">戻る</a>
+    <h1 class="text-base font-semibold">コメントを編集</h1>
+    <a href="/logout" class="text-sm text-gray-600">ログアウト</a>
+  </div>
+</header>
+
+<main class="mx-auto max-w-md w-full px-4 pb-28 pt-3">
+
+  <form th:action="@{'/comments/' + ${comment.id} + '/edit'}" method="post" class="rounded-xl bg-white shadow-sm border border-gray-200 p-3 space-y-2">
+    <div class="text-sm text-gray-600">コメント投稿者: <span class="font-medium text-gray-800" th:text="${comment.username}"></span></div>
+    <label class="block text-sm text-gray-700 mb-1">コメント（改行のみ対応）</label>
+    <textarea name="content" required class="w-full h-40 resize-y rounded-md border border-gray-300 px-3 py-2 text-[15px] focus:outline-none focus:ring-2 focus:ring-blue-500" th:text="${comment.content}"></textarea>
+    <div class="flex justify-end gap-3">
+      <a th:href="@{'/posts/' + ${comment.postId}}" class="inline-flex items-center rounded-md border px-3 py-2 text-sm font-medium text-gray-700">キャンセル</a>
+      <button type="submit" class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm active:bg-blue-700">保存する</button>
+    </div>
+  </form>
+
+</main>
+
+<nav class="fixed bottom-0 inset-x-0 z-20 bg-white/95 backdrop-blur border-t border-gray-200">
+  <div class="mx-auto max-w-md w-full px-8 h-14 grid grid-cols-3 items-center text-xs text-gray-600">
+    <a href="/" class="justify-self-start inline-flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" class="w-5 h-5"><path d="M11.47 3.84a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 1 1-1.06 1.06L12 5.06 5.03 12l-.53-.53c-.3-.3-.3-.79 0-1.09l7-7.04z"/><path d="M4.5 12.75l7.28-7.28a.75.75 0 0 1 1.06 0l6.66 6.66v6.62a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 18.75v-6z"/></svg>
+      <span>ホーム</span>
+    </a>
+    <a href="/posts/new" class="justify-self-center -mt-8 inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg active:bg-blue-700" aria-label="投稿する">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7"><path fill-rule="evenodd" d="M12 4.5a.75.75 0 01.75.75v6h6a.75.75 0 010 1.5h-6v6a.75.75 0 01-1.5 0v-6h-6a.75.75 0 010-1.5h6v-6A.75.75 0 0112 4.5z" clip-rule="evenodd"/></svg>
+    </a>
+    <a th:href="@{'/users/' + ${session.loginUser}}" class="justify-self-end inline-flex items-center gap-2">
+      <span>自分</span>
+    </a>
+  </div>
+</nav>
+
+</body>
+</html>
+

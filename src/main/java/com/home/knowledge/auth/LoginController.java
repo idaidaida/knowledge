@@ -1,5 +1,6 @@
 package com.home.knowledge.auth;
 
+import com.home.knowledge.notify.NotificationRepository;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -9,13 +10,18 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.sql.Timestamp;
+import java.time.Instant;
+
 @Controller
 public class LoginController {
 
     private final UserRepository userRepository;
+    private final NotificationRepository notificationRepository;
 
-    public LoginController(UserRepository userRepository) {
+    public LoginController(UserRepository userRepository, NotificationRepository notificationRepository) {
         this.userRepository = userRepository;
+        this.notificationRepository = notificationRepository;
     }
 
     @GetMapping("/login")
@@ -43,7 +49,9 @@ public class LoginController {
             model.addAttribute("error", "ID または パスワードが正しくありません");
             return "login";
         }
-        session.setAttribute("loginUser", id.trim());
+        String uid = id.trim();
+        session.setAttribute("loginUser", uid);
+        notificationRepository.upsertLastSeen(uid, Timestamp.from(Instant.now()));
         redirectAttributes.addFlashAttribute("error", null);
         return "redirect:/";
     }

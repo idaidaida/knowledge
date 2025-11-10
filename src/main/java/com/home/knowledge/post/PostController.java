@@ -1,6 +1,9 @@
 package com.home.knowledge.post;
 
 import com.home.knowledge.comment.CommentRepository;
+import com.home.knowledge.like.LikeRepository;
+import com.home.knowledge.notify.NotificationRepository;
+import com.home.knowledge.read.ReadRepository;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
@@ -15,16 +18,39 @@ public class PostController {
 
     private final PostRepository repository;
     private final CommentRepository commentRepository;
+    private final LikeRepository likeRepository;
+    private final ReadRepository readRepository;
+    private final NotificationRepository notificationRepository;
 
-    public PostController(PostRepository repository, CommentRepository commentRepository) {
+    public PostController(PostRepository repository,
+                          CommentRepository commentRepository,
+                          LikeRepository likeRepository,
+                          ReadRepository readRepository,
+                          NotificationRepository notificationRepository) {
         this.repository = repository;
         this.commentRepository = commentRepository;
+        this.likeRepository = likeRepository;
+        this.readRepository = readRepository;
+        this.notificationRepository = notificationRepository;
     }
 
     @GetMapping("/")
-    public String timeline(Model model) {
+    public String timeline(@org.springframework.web.bind.annotation.RequestParam(name = "unread", required = false) Boolean unread,
+                           jakarta.servlet.http.HttpSession session,
+                           Model model) {
         var posts = repository.findAll();
+        if (Boolean.TRUE.equals(unread)) {
+            String user = (String) session.getAttribute("loginUser");
+            if (StringUtils.hasText(user)) {
+                var readIds = readRepository.findReadPostIds(user);
+                posts.removeIf(p -> readIds.contains(p.getId()));
+            }
+            model.addAttribute("unreadFilter", true);
+        } else {
+            model.addAttribute("unreadFilter", false);
+        }
         model.addAttribute("posts", posts);
+        addNotificationsToModel(session, model);
         model.addAttribute("filterUser", null);
         return "timeline";
     }
@@ -62,6 +88,7 @@ public class PostController {
                 (imageUrl != null ? imageUrl.trim() : null),
                 linkUrl.trim()
         );
+        notificationRepository.markSeen(loginUser.trim(), "POST", post.getId());
         return "redirect:/posts/" + post.getId();
     }
 
@@ -81,12 +108,13 @@ public class PostController {
             redirectAttributes.addFlashAttribute("error", "コメント内容を入力してください");
             return "redirect:/posts/" + postId;
         }
-        commentRepository.save(postId, loginUser.trim(), content.trim());
+        var comment = commentRepository.save(postId, loginUser.trim(), content.trim());
+        notificationRepository.markSeen(loginUser.trim(), "COMMENT", comment.getId());
         return "redirect:/posts/" + postId;
     }
 
     @GetMapping("/posts/{id}")
-    public String detail(@PathVariable long id, Model model, RedirectAttributes redirectAttributes) {
+    public String detail(@PathVariable long id, Model model, jakarta.servlet.http.HttpSession session, RedirectAttributes redirectAttributes) {
         var opt = repository.findById(id);
         if (opt.isEmpty()) {
             redirectAttributes.addFlashAttribute("error", "Post not found");
@@ -95,7 +123,52 @@ public class PostController {
         var post = opt.get();
         model.addAttribute("post", post);
         model.addAttribute("comments", commentRepository.findByPostId(id));
+        String loginUser = (String) session.getAttribute("loginUser");
+        model.addAttribute("likeCount", likeRepository.countByPostId(id));
+        model.addAttribute("likedByMe", (loginUser != null && likeRepository.likedByUser(id, loginUser)));
+        addNotificationsToModel(session, model);
         return "post_detail";
+    }
+
+    @GetMapping("/posts/{id}/go")
+    public String goToLink(@PathVariable long id, jakarta.servlet.http.HttpSession session, RedirectAttributes redirectAttributes) {
+        var opt = repository.findById(id);
+        if (opt.isEmpty()) {
+            redirectAttributes.addFlashAttribute("error", "Post not found");
+            return "redirect:/";
+        }
+        String user = (String) session.getAttribute("loginUser");
+        if (org.springframework.util.StringUtils.hasText(user)) {
+            readRepository.markRead(id, user.trim());
+        }
+        String link = opt.get().getLinkUrl();
+        if (!org.springframework.util.StringUtils.hasText(link)) {
+            return "redirect:/posts/" + id;
+        }
+        return "redirect:" + link;
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/notifications/seen")
+    public String markNotificationsSeen(jakarta.servlet.http.HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
+        String user = (String) session.getAttribute("loginUser");
+        if (org.springframework.util.StringUtils.hasText(user)) {
+            notificationRepository.upsertLastSeen(user, new java.sql.Timestamp(System.currentTimeMillis()));
+        }
+        String ref = request.getHeader("Referer");
+        return "redirect:" + (ref != null ? ref : "/");
+    }
+
+    private void addNotificationsToModel(jakarta.servlet.http.HttpSession session, Model model) {
+        String user = (String) session.getAttribute("loginUser");
+        if (org.springframework.util.StringUtils.hasText(user)) {
+            int count = notificationRepository.countUnread(user);
+            var list = notificationRepository.listUnread(user, 10);
+            model.addAttribute("notificationCount", count);
+            model.addAttribute("notifications", list);
+        } else {
+            model.addAttribute("notificationCount", 0);
+            model.addAttribute("notifications", java.util.List.of());
+        }
     }
 
     @GetMapping("/posts/new")
@@ -166,6 +239,28 @@ public class PostController {
         return "redirect:/";
     }
 
+    @PostMapping("/posts/{id}/like")
+    public String like(@PathVariable long id, jakarta.servlet.http.HttpSession session, RedirectAttributes redirectAttributes) {
+        String user = (String) session.getAttribute("loginUser");
+        if (!org.springframework.util.StringUtils.hasText(user)) {
+            redirectAttributes.addFlashAttribute("error", "ログインが必要です");
+            return "redirect:/login";
+        }
+        likeRepository.like(id, user.trim());
+        return "redirect:/posts/" + id;
+    }
+
+    @PostMapping("/posts/{id}/unlike")
+    public String unlike(@PathVariable long id, jakarta.servlet.http.HttpSession session, RedirectAttributes redirectAttributes) {
+        String user = (String) session.getAttribute("loginUser");
+        if (!org.springframework.util.StringUtils.hasText(user)) {
+            redirectAttributes.addFlashAttribute("error", "ログインが必要です");
+            return "redirect:/login";
+        }
+        likeRepository.unlike(id, user.trim());
+        return "redirect:/posts/" + id;
+    }
+
     @GetMapping("/comments/{id}/edit")
     public String editComment(@PathVariable long id, jakarta.servlet.http.HttpSession session, Model model, RedirectAttributes redirectAttributes) {
         var c = commentRepository.findById(id);
@@ -218,4 +313,3 @@ public class PostController {
         return "redirect:/posts/" + c.getPostId();
     }
 }
-

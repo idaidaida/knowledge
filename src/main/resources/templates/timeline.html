@@ -1,190 +1,114 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    />
-    <title
-      th:text="${filterUser} != null ? ${filterUser} + ' の投稿' : 'ホーム'"
-    >
-      ホーム
-    </title>
-    <script src="https://cdn.tailwindcss.com"></script>
-  </head>
-  <body class="bg-gray-50 text-gray-900">
-    <!-- Header -->
-    <header
-      class="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-gray-200"
-    >
-      <div
-        class="mx-auto max-w-md w-full px-4 h-12 flex items-center justify-between"
-      >
-        <div class="flex items-center gap-2">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="#2563eb"
-            class="w-5 h-5"
-          >
-            <path
-              d="M11.47 3.84a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 1 1-1.06 1.06L12 5.06 5.03 12l-.53-.53c-.3-.3-.3-.79 0-1.09l7-7.04z"
-            />
-            <path
-              d="M4.5 12.75l7.28-7.28a.75.75 0 0 1 1.06 0l6.66 6.66v6.62a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 18.75v-6z"
-            />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title th:text="${filterUser != null ? filterUser + ' の投稿' : 'ホーム'}">ホーム</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900">
+
+<header class="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-gray-200">
+  <div class="mx-auto max-w-md w-full px-4 h-12 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#2563eb" class="w-5 h-5"><path d="M11.47 3.84a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 1 1-1.06 1.06L12 5.06 5.03 12l-.53-.53c-.3-.3-.3-.79 0-1.09l7-7.04z"/><path d="M4.5 12.75l7.28-7.28a.75.75 0 0 1 1.06 0l6.66 6.66v6.62a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 18.75v-6z"/></svg>
+      <h1 class="text-base font-semibold" th:text="${filterUser != null ? filterUser + ' の投稿' : 'ホーム'}">ホーム</h1>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="relative">
+        <button id="notifyBtn" type="button" class="p-2 rounded-md text-gray-600 hover:bg-gray-100 relative" aria-haspopup="true" aria-expanded="false">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+            <path d="M12 2.25a3.75 3.75 0 00-3.75 3.75v1.098c0 .414-.168.812-.467 1.102A6.724 6.724 0 006 13.5v.75h12v-.75a6.724 6.724 0 00-1.783-5.3 1.5 1.5 0 01-.467-1.102V6A3.75 3.75 0 0012 2.25z"/>
+            <path d="M8.25 16.5h7.5a3.75 3.75 0 11-7.5 0z"/>
           </svg>
-          <h1
-            class="text-base font-semibold"
-            th:text="${filterUser} != null ? ${filterUser} + ' の投稿' : 'ホーム'"
-          >
-            ホーム
-          </h1>
+          <span th:if="${notificationCount} > 0" class="absolute -top-0.5 -right-0.5 min-w-[1rem] h-4 px-1 rounded-full bg-red-600 text-white text-[10px] leading-4 text-center" th:text="${notificationCount}">0</span>
+        </button>
+        <div id="notifyMenu" class="hidden absolute right-0 mt-1 w-72 max-h-80 overflow-auto bg-white border border-gray-200 rounded-md shadow-lg p-2">
+          <div class="text-xs text-gray-500 mb-1">通知</div>
+          <div th:if="${#lists.isEmpty(notifications)}" class="text-sm text-gray-600 p-2">新しい通知はありません</div>
+          <a th:each="n : ${notifications}"
+             th:href="${n.kind == 'POST' ? '/posts/' + n.refId : '/posts/' + n.postId}"
+             class="block px-2 py-1.5 rounded hover:bg-gray-50">
+            <span class="text-xs text-gray-500" th:text="${#dates.format(n.createdAt, 'MM/dd HH:mm')}">00/00 00:00</span>
+            <div class="text-sm text-gray-900" th:text="${n.kind == 'POST' ? ('新規投稿: ' + (!#strings.isEmpty(n.title) ? n.title : #strings.abbreviate(n.body, 24))) : ('新規コメント: ' + n.actor)}">通知</div>
+          </a>
+          <form method="post" action="/notifications/seen" class="mt-2 text-right">
+            <button type="submit" class="text-xs text-blue-600 underline underline-offset-2">すべて既読</button>
+          </form>
         </div>
-        <a href="/logout" class="text-sm text-gray-600" title="ログアウト"
-          >ログアウト</a
-        >
       </div>
-    </header>
+      <a href="/logout" class="text-sm text-gray-600">ログアウト</a>
+    </div>
+  </div>
+</header>
 
-    <main class="mx-auto max-w-md w-full px-0 pb-28 pt-0">
-      <div
-        th:if="${error}"
-        class="mb-3 rounded-md border border-red-200 bg-red-50 text-red-800 text-sm px-3 py-2"
-        th:text="${error}"
-      ></div>
+<main class="mx-auto max-w-md w-full px-0 pb-28 pt-0">
+  <div th:if="${error}" class="mb-3 rounded-md border border-red-200 bg-red-50 text-red-800 text-sm px-3 py-2" th:text="${error}"></div>
 
-      <section>
-        <div
-          th:if="${#lists.isEmpty(posts)}"
-          class="text-center text-gray-500 text-sm py-8"
-        >
-          投稿はまだありません
-        </div>
+  <section>
+    <div class="flex items-center justify-end px-3 py-2">
+      <a th:if="${unreadFilter} == false" href="/?unread=1" class="inline-flex items-center rounded-full border border-gray-300 bg-gray-100 text-gray-600 text-xs px-2 py-1">未読のみ</a>
+      <a th:if="${unreadFilter} == true" href="/" class="inline-flex items-center rounded-full border border-blue-600 bg-blue-600 text-white text-xs px-2 py-1">未読のみ</a>
+    </div>
+    <div th:if="${#lists.isEmpty(posts)}" class="text-center text-gray-500 text-sm py-6">投稿はありません</div>
 
-        <!-- Compact List Style -->
-        <ul class="bg-white divide-y divide-gray-200 mt-2">
-          <li th:each="post : ${posts}">
-            <a
-              class="flex gap-3 items-start p-3 active:bg-gray-50"
-              th:href="@{'/posts/' + ${post.id}}"
-            >
-              <!-- Avatar -->
-              <img
-                class="w-9 h-9 rounded-full object-cover bg-gray-200 flex-none"
-                th:src="@{'/img/users/' + ${post.username} + '.svg'}"
-                onerror="this.onerror=null;this.src='/img/users/_default.svg';"
-                alt="avatar"
-              />
-
-              <!-- Content -->
-              <div class="min-w-0 flex-1">
-                <div class="text-xs text-gray-500 flex items-center gap-2">
-                  <button
-                    type="button"
-                    class="text-gray-700 underline underline-offset-2"
-                    onclick="event.stopPropagation(); location.href=this.dataset.href;"
-                    th:attr="data-href=@{'/users/' + ${post.username}}"
-                    th:text="${post.username}"
-                  >
-                    username
-                  </button>
-                  <span class="mx-1">·</span>
-                  <span
-                    th:text="${#dates.format(post.createdAt, 'yyyy-MM-dd HH:mm')}"
-                  ></span>
-                </div>
-                <div
-                  class="mt-0.5 text-[15px] font-semibold text-gray-900 overflow-hidden"
-                  style="
-                    -webkit-line-clamp: 1;
-                    display: -webkit-box;
-                    -webkit-box-orient: vertical;
-                  "
-                  th:text="${post.title} ?: '記事'"
-                ></div>
-                <div
-                  class="mt-0.5 text-sm text-gray-700 overflow-hidden whitespace-pre-line"
-                  style="
-                    -webkit-line-clamp: 2;
-                    display: -webkit-box;
-                    -webkit-box-orient: vertical;
-                  "
-                  th:text="${post.content}"
-                ></div>
-              </div>
-
-              <!-- Thumb (optional) -->
-              <img
-                th:if="${!#strings.isEmpty(post.imageUrl)}"
-                class="w-16 h-16 rounded-md object-cover bg-gray-100 flex-none"
-                th:src="${post.imageUrl}"
-                alt="thumb"
-              />
-            </a>
-          </li>
-        </ul>
-      </section>
-    </main>
-
-    <!-- Bottom Navigation -->
-    <nav
-      class="fixed bottom-0 inset-x-0 z-20 bg-white/95 backdrop-blur border-t border-gray-200"
-    >
-      <div
-        class="mx-auto max-w-md w-full px-8 h-14 grid grid-cols-3 items-center text-xs text-gray-600"
-      >
-        <a
-          href="/"
-          class="justify-self-start inline-flex items-center gap-2 text-blue-600"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="currentColor"
-            viewBox="0 0 24 24"
-            class="w-5 h-5"
-          >
-            <path
-              d="M11.47 3.84a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 1 1-1.06 1.06L12 5.06 5.03 12l-.53-.53c-.3-.3-.3-.79 0-1.09l7-7.04z"
-            />
-            <path
-              d="M4.5 12.75l7.28-7.28a.75.75 0 0 1 1.06 0l6.66 6.66v6.62a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 18.75v-6z"
-            />
-          </svg>
-          <span>ホーム</span>
+    <ul class="bg-white divide-y divide-gray-200">
+      <li th:each="post : ${posts}">
+        <a class="flex gap-3 items-start p-3 active:bg-gray-50" th:href="@{'/posts/' + ${post.id}}">
+          <div class="min-w-0 flex-1">
+            <div class="text-xs text-gray-500 flex items-center gap-2">
+              <button type="button" class="text-gray-700 underline underline-offset-2"
+                      onclick="event.stopPropagation(); location.href=this.dataset.href;"
+                      th:attr="data-href=@{'/users/' + ${post.username}}"
+                      th:text="${post.username}">username</button>
+              <span class="mx-1">・</span>
+              <span th:text="${#dates.format(post.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
+            </div>
+            <div class="mt-0.5 text-[15px] font-semibold text-gray-900 overflow-hidden" style="-webkit-line-clamp: 1; display: -webkit-box; -webkit-box-orient: vertical;" th:text="${#strings.isEmpty(post.title) ? 'タイトル' : post.title}"></div>
+            <div class="mt-0.5 text-sm text-gray-700 overflow-hidden whitespace-pre-line" style="-webkit-line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical;" th:text="${post.content}"></div>
+          </div>
         </a>
-        <a
-          href="/posts/new"
-          class="justify-self-center -mt-8 inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg active:bg-blue-700"
-          aria-label="投稿する"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            class="w-7 h-7"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M12 4.5a.75.75 0 01.75.75v6h6a.75.75 0 010 1.5h-6v6a.75.75 0 01-1.5 0v-6h-6a.75.75 0 010-1.5h6v-6A.75.75 0 0112 4.5z"
-              clip-rule="evenodd"
-            />
-          </svg>
-        </a>
-        <a
-          th:href="@{'/users/' + ${session.loginUser}}"
-          class="justify-self-end inline-flex items-center gap-2"
-        >
-          <img
-            class="w-5 h-5 rounded-full object-cover bg-gray-200"
-            th:src="@{'/img/users/' + ${session.loginUser} + '.svg'}"
-            onerror="this.onerror=null;this.src='/img/users/_default.svg';"
-            alt="me"
-          />
-          <span>自分</span>
-        </a>
-      </div>
-    </nav>
-  </body>
+      </li>
+    </ul>
+  </section>
+</main>
+
+<nav class="fixed bottom-0 inset-x-0 z-20 bg-white/95 backdrop-blur border-t border-gray-200">
+  <div class="mx-auto max-w-md w-full px-8 h-14 grid grid-cols-3 items-center text-xs text-gray-600">
+    <a href="/" class="justify-self-start inline-flex items-center gap-2 text-blue-600">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" class="w-5 h-5"><path d="M11.47 3.84a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 1 1-1.06 1.06L12 5.06 5.03 12l-.53-.53c-.3-.3-.3-.79 0-1.09l7-7.04z"/><path d="M4.5 12.75l7.28-7.28a.75.75 0 0 1 1.06 0l6.66 6.66v6.62a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 18.75v-6z"/></svg>
+      <span>ホーム</span>
+    </a>
+    <a href="/posts/new" class="justify-self-center -mt-8 inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg active:bg-blue-700" aria-label="投稿する">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7"><path fill-rule="evenodd" d="M12 4.5a.75.75 0 01.75.75v6h6a.75.75 0 010 1.5h-6v6a.75.75 0 01-1.5 0v-6h-6a.75.75 0 010-1.5h6v-6A.75.75 0 0112 4.5z" clip-rule="evenodd"/></svg>
+    </a>
+    <a th:href="@{'/users/' + ${session.loginUser}}" class="justify-self-end inline-flex items-center gap-2">
+      <span>マイページ</span>
+    </a>
+  </div>
+</nav>
+
+<script>
+  (function(){
+    const nbtn = document.getElementById('notifyBtn');
+    const nmenu = document.getElementById('notifyMenu');
+    function hideN(){ if(nmenu){ nmenu.classList.add('hidden'); nbtn?.setAttribute('aria-expanded','false'); } }
+    if (nbtn && nmenu) {
+      nbtn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const shown = !nmenu.classList.contains('hidden');
+        if (shown) hideN(); else { nmenu.classList.remove('hidden'); nbtn.setAttribute('aria-expanded','true'); }
+      });
+      document.addEventListener('click', (e)=>{
+        if (!nmenu.classList.contains('hidden')) {
+          const within = nmenu.contains(e.target) || nbtn.contains(e.target);
+          if (!within) hideN();
+        }
+      });
+      document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') hideN(); });
+    }
+  })();
+</script>
+
+</body>
 </html>
