@@ -4,14 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title th:text="${#strings.isEmpty(post.title) ? 'タイトル' : post.title}">タイトル</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous" />
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 text-gray-900">
 
 <header class="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-gray-200">
   <div class="mx-auto max-w-md w-full px-4 h-12 flex items-center justify-between">
-    <a href="/" class="text-sm text-blue-600">ホーム</a>
-    <h1 class="text-base font-semibold">記事</h1>
+    <div class="flex items-center">
+      <span class="text-xl font-semibold tracking-widest font-serif">KShare</span>
+    </div>
     <div class="flex items-center gap-3">
       <div class="relative">
         <button id="notifyBtn" type="button" class="p-2 rounded-md text-gray-600 hover:bg-gray-100 relative" aria-haspopup="true" aria-expanded="false">
@@ -35,7 +37,9 @@
           </form>
         </div>
       </div>
-      <a href="/logout" class="text-sm text-gray-600">ログアウト</a>
+      <a href="/logout" class="text-gray-600 text-xl">
+        <i class="fa-solid fa-right-from-bracket"></i>
+      </a>
     </div>
   </div>
 </header>
@@ -74,15 +78,25 @@
       <a th:href="@{'/posts/' + ${post.id} + '/go'}" class="text-blue-600 underline underline-offset-2 font-semibold">ニュースを開く</a>
     </div>
 
-    <div class="mt-2 flex items-center gap-3">
-      <span class="text-xs text-gray-600">いいね: <span th:text="${likeCount}">0</span></span>
-      <form th:if="${likedByMe}" th:action="@{'/posts/' + ${post.id} + '/unlike'}" method="post">
-        <button type="submit" class="text-xs text-gray-500 underline underline-offset-2 bg-transparent p-0">いいね解除</button>
+    <div class="mt-2 flex items-center gap-3 relative">
+      <form th:action="@{${likedByMe} ? '/posts/' + ${post.id} + '/unlike' : '/posts/' + ${post.id} + '/like'}" method="post" data-like-toggle>
+        <button type="submit" class="flex items-center gap-1 text-sm font-semibold text-red-600" th:attr="data-next-message=${likedByMe} ? 'いいねを解除しました' : 'いいねを登録しました'">
+          <i class="fa-solid fa-star text-yellow-400"></i>
+          <span th:text="${likeCount}">0</span>
+        </button>
       </form>
-      <form th:if="${!likedByMe}" th:action="@{'/posts/' + ${post.id} + '/like'}" method="post">
-        <button type="submit" class="text-xs text-gray-500 underline underline-offset-2 bg-transparent p-0">いいね</button>
-      </form>
+      <div class="flex items-center gap-1 text-xs text-gray-500 cursor-pointer" id="readerToggle">
+        <i class="fa-regular fa-eye text-gray-500"></i>
+        <span th:text="${readersCount}">0</span>
+      </div>
     </div>
+    <div id="readersPopup" class="hidden mt-2 rounded-md border border-gray-200 bg-white p-2 shadow-lg z-50">
+      <p class="text-xs font-medium text-gray-500 mb-1">既読ユーザー</p>
+      <ul class="text-xs text-gray-700 space-y-1">
+        <li th:each="reader : ${readers}" th:text="${reader}">username</li>
+      </ul>
+    </div>
+    <div id="likeToast" class="hidden fixed bottom-24 right-4 z-50 rounded-md bg-black px-3 py-1 text-sm font-medium text-white shadow-lg"></div>
   </article>
 
   <section class="mt-4">
@@ -93,17 +107,26 @@
     <div th:if="${session.loginUser == null}" class="mt-2 text-sm text-gray-700">コメントするにはログインしてください。</div>
 
     <ul class="mt-2 bg-white divide-y divide-gray-200 rounded-md border border-gray-200">
-      <li th:each="c : ${comments}" class="p-3">
-        <div class="text-xs text-gray-500">
-          <span th:text="${c.username}">user</span>
-          <span class="mx-1">・</span>
-          <span th:text="${#dates.format(c.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
+      <li th:each="c : ${comments}" class="relative p-3">
+        <div class="flex items-start justify-between">
+          <div class="flex items-center gap-1 text-xs text-gray-500">
+            <span th:text="${c.username}">user</span>
+            <span>・</span>
+            <span th:text="${#dates.format(c.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
+            <span class="flex items-center gap-1">
+              <i class="fa-regular fa-eye text-gray-500"></i>
+              <span th:text="${readersCount}">0</span>
+            </span>
+          </div>
+          <button type="button" class="comment-menu-btn text-gray-500 hover:bg-gray-100 rounded-full p-1" th:attr="data-target='comment-menu-' + ${c.id}">
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+          </button>
         </div>
         <div class="mt-1 text-sm text-gray-800 whitespace-pre-line" th:text="${c.content}"></div>
-        <div th:if="${session.loginUser == c.username}" class="mt-1 text-xs">
-          <a th:href="@{'/comments/' + ${c.id} + '/edit'}" class="text-gray-500 mr-2">編集</a>
-          <form th:action="@{'/comments/' + ${c.id} + '/delete'}" method="post" class="inline">
-            <button type="submit" class="text-gray-500">削除</button>
+        <div id="comment-menu-${c.id}" class="hidden absolute right-3 top-8 w-32 rounded-md border border-gray-200 bg-white shadow-lg py-1 text-sm z-50">
+          <a th:href="@{'/comments/' + ${c.id} + '/edit'}" class="block px-3 py-1.5 text-gray-700 hover:bg-gray-50">編集</a>
+          <form th:action="@{'/comments/' + ${c.id} + '/delete'}" method="post">
+            <button type="submit" class="w-full text-left px-3 py-1.5 text-gray-700 hover:bg-gray-50">削除</button>
           </form>
         </div>
       </li>
@@ -134,14 +157,15 @@
   <nav class="fixed bottom-0 inset-x-0 z-20 bg-white/95 backdrop-blur border-t border-gray-200">
     <div class="mx-auto max-w-md w-full px-8 h-14 grid grid-cols-3 items-center text-xs text-gray-600">
       <a href="/" class="justify-self-start inline-flex items-center gap-2 text-blue-600">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" class="w-5 h-5"><path d="M11.47 3.84a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 1 1-1.06 1.06L12 5.06 5.03 12l-.53-.53c-.3-.3-.3-.79 0-1.09l7-7.04z"/><path d="M4.5 12.75l7.28-7.28a.75.75 0 0 1 1.06 0l6.66 6.66v6.62a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 18.75v-6z"/></svg>
-        <span>ホーム</span>
+        <i class="fa-solid fa-stream"></i>
+        <span>Timeline</span>
       </a>
       <a href="/posts/new" class="justify-self-center -mt-8 inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg active:bg-blue-700" aria-label="投稿する">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7"><path fill-rule="evenodd" d="M12 4.5a.75.75 0 01.75.75v6h6a.75.75 0 010 1.5h-6v6a.75.75 0 01-1.5 0v-6h-6a.75.75 0 010-1.5h6v-6A.75.75 0 0112 4.5z" clip-rule="evenodd"/></svg>
       </a>
-      <a th:href="@{'/users/' + ${session.loginUser}}" class="justify-self-end inline-flex items-center gap-2">
-        <span>マイページ</span>
+      <a th:href="@{'/users/' + ${session.loginUser}}" class="justify-self-end inline-flex items-center gap-2 text-gray-600">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <span>Search</span>
       </a>
     </div>
   </nav>
@@ -201,6 +225,45 @@
       if (backdrop) backdrop.addEventListener('click', close);
       document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') close(); });
     }
+
+    const likeForm = document.querySelector('[data-like-toggle]');
+    const likeToast = document.getElementById('likeToast');
+    if (likeForm && likeToast) {
+      likeForm.addEventListener('submit', (e)=>{
+        e.preventDefault();
+        const btn = likeForm.querySelector('[data-next-message]');
+        if (btn && btn.dataset.nextMessage) {
+          likeToast.textContent = btn.dataset.nextMessage;
+        } else {
+          likeToast.textContent = '処理しました';
+        }
+        likeToast.classList.remove('hidden');
+        setTimeout(()=> likeToast.classList.add('hidden'), 1200);
+        setTimeout(()=> likeForm.submit(), 400);
+      });
+    }
+
+    const readerToggle = document.getElementById('readerToggle');
+    const readersPopup = document.getElementById('readersPopup');
+    if (readerToggle && readersPopup) {
+      readerToggle.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        readersPopup.classList.toggle('hidden');
+      });
+      document.addEventListener('click', ()=>{ readersPopup.classList.add('hidden'); });
+    }
+
+    const commentMenus = document.querySelectorAll('.comment-menu-btn');
+    commentMenus.forEach(btn => {
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const target = document.getElementById(btn.getAttribute('data-target'));
+        if (!target) return;
+        const hidden = target.classList.toggle('hidden');
+        document.querySelectorAll('[id^=\"comment-menu-\"]')
+          .forEach(el => { if (el !== target) el.classList.add('hidden'); });
+      });
+    });
   })();
 </script>
 

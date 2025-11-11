@@ -16,8 +16,10 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Controller
 public class PostController {
@@ -48,20 +50,28 @@ public class PostController {
                            jakarta.servlet.http.HttpSession session,
                            Model model) {
         var posts = repository.findAll();
+        String user = (String) session.getAttribute("loginUser");
+        Set<Long> readIds = Set.of();
+        if (StringUtils.hasText(user)) {
+            readIds = readRepository.findReadPostIds(user);
+        }
         if (Boolean.TRUE.equals(unread)) {
-            String user = (String) session.getAttribute("loginUser");
-            if (StringUtils.hasText(user)) {
-                var readIds = readRepository.findReadPostIds(user);
-                posts.removeIf(p -> readIds.contains(p.getId()));
-            }
+            var readIdSet = readIds;
+            posts.removeIf(p -> readIdSet.contains(p.getId()));
             model.addAttribute("unreadFilter", true);
         } else {
             model.addAttribute("unreadFilter", false);
         }
         model.addAttribute("posts", posts);
+        model.addAttribute("readPostIds", readIds);
         Map<Long, Integer> likeCounts = new HashMap<>();
-        posts.forEach(p -> likeCounts.put(p.getId(), likeRepository.countByPostId(p.getId())));
+        Map<Long, List<String>> readersByPost = new HashMap<>();
+        posts.forEach(p -> {
+            likeCounts.put(p.getId(), likeRepository.countByPostId(p.getId()));
+            readersByPost.put(p.getId(), readRepository.findReadersByPostId(p.getId()));
+        });
         model.addAttribute("likeCounts", likeCounts);
+        model.addAttribute("readersByPost", readersByPost);
         addNotificationsToModel(session, model);
         model.addAttribute("filterUser", null);
         return "timeline";
@@ -133,11 +143,26 @@ public class PostController {
             return "redirect:/";
         }
         var post = opt.get();
+        var comments = commentRepository.findByPostId(id);
         model.addAttribute("post", post);
-        model.addAttribute("comments", commentRepository.findByPostId(id));
+        model.addAttribute("comments", comments);
         String loginUser = (String) session.getAttribute("loginUser");
         model.addAttribute("likeCount", likeRepository.countByPostId(id));
         model.addAttribute("likedByMe", (loginUser != null && likeRepository.likedByUser(id, loginUser)));
+        boolean isRead = false;
+        if (StringUtils.hasText(loginUser)) {
+            readRepository.markRead(id, loginUser.trim());
+            notificationRepository.markSeen(loginUser.trim(), "POST", id);
+            var commentIds = comments.stream()
+                    .map(c -> c.getId())
+                    .collect(java.util.stream.Collectors.toSet());
+            notificationRepository.markCommentsSeen(loginUser.trim(), commentIds);
+            isRead = true;
+        }
+        var readers = readRepository.findReadersByPostId(id);
+        model.addAttribute("readers", readers);
+        model.addAttribute("readersCount", readers.size());
+        model.addAttribute("isRead", isRead);
         addNotificationsToModel(session, model);
         return "post_detail";
     }

@@ -4,15 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title th:text="${filterUser != null ? filterUser + ' の投稿' : 'ホーム'}">ホーム</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 text-gray-900">
 
 <header class="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-gray-200">
   <div class="mx-auto max-w-md w-full px-4 h-12 flex items-center justify-between">
-    <div class="flex items-center gap-2">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#2563eb" class="w-5 h-5"><path d="M11.47 3.84a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 1 1-1.06 1.06L12 5.06 5.03 12l-.53-.53c-.3-.3-.3-.79 0-1.09l7-7.04z"/><path d="M4.5 12.75l7.28-7.28a.75.75 0 0 1 1.06 0l6.66 6.66v6.62a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 18.75v-6z"/></svg>
-      <h1 class="text-base font-semibold" th:text="${filterUser != null ? filterUser + ' の投稿' : 'ホーム'}">ホーム</h1>
+    <div class="flex items-center">
+      <span class="text-xl font-semibold tracking-widest font-serif">KShare</span>
     </div>
     <div class="flex items-center gap-3">
       <div class="relative">
@@ -37,7 +37,9 @@
           </form>
         </div>
       </div>
-      <a href="/logout" class="text-sm text-gray-600">ログアウト</a>
+      <a href="/logout" class="text-gray-600 text-xl">
+        <i class="fa-solid fa-right-from-bracket"></i>
+      </a>
     </div>
   </div>
 </header>
@@ -53,7 +55,7 @@
     <div th:if="${#lists.isEmpty(posts)}" class="text-center text-gray-500 text-sm py-6">投稿はありません</div>
 
     <ul class="bg-white divide-y divide-gray-200">
-      <li th:each="post : ${posts}">
+      <li th:each="post : ${posts}" class="relative">
         <a class="flex gap-3 items-start p-3 active:bg-gray-50" th:href="@{'/posts/' + ${post.id}}">
           <div class="min-w-0 flex-1">
             <div class="text-xs text-gray-500 flex items-center gap-2">
@@ -69,9 +71,7 @@
             <p th:if="${!#strings.isEmpty(post.summary)}" class="mt-1 text-sm text-gray-600 overflow-hidden whitespace-pre-line" style="-webkit-line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical;" th:text="${post.summary}"></p>
             <div class="mt-2 flex items-center gap-4 text-xs text-gray-500">
               <span class="flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" class="w-4 h-4 text-red-500">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                </svg>
+                <i class="fa-solid fa-star text-yellow-400"></i>
                 <span th:text="${likeCounts[post.id] != null ? likeCounts[post.id] : 0}">0</span>
               </span>
               <span th:if="${newCommentPosts.contains(post.id)}" class="inline-flex items-center gap-1 text-blue-600">
@@ -80,9 +80,19 @@
                 </svg>
                 <span class="text-[11px] font-semibold tracking-wide">新コメント</span>
               </span>
+              <span class="flex items-center gap-1 cursor-pointer reader-toggle" th:attr="data-postid=${post.id}">
+                <i class="fa-regular fa-eye text-gray-500" aria-hidden="true"></i>
+                <span th:text="${(readersByPost[post.id]?.size()) ?: 0}">0</span>
+              </span>
             </div>
           </div>
         </a>
+        <div class="reader-popup hidden absolute left-3 top-full mt-1 w-[220px] rounded-md border border-gray-200 bg-white p-2 text-xs text-gray-700 shadow-lg" th:attr="data-postid=${post.id}">
+          <p class="font-medium mb-1 text-gray-500">既読ユーザー</p>
+          <ul>
+            <li th:each="name : ${readersByPost[post.id]}" th:text="${name}">user</li>
+          </ul>
+        </div>
       </li>
     </ul>
   </section>
@@ -91,14 +101,15 @@
 <nav class="fixed bottom-0 inset-x-0 z-20 bg-white/95 backdrop-blur border-t border-gray-200">
   <div class="mx-auto max-w-md w-full px-8 h-14 grid grid-cols-3 items-center text-xs text-gray-600">
     <a href="/" class="justify-self-start inline-flex items-center gap-2 text-blue-600">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" class="w-5 h-5"><path d="M11.47 3.84a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 1 1-1.06 1.06L12 5.06 5.03 12l-.53-.53c-.3-.3-.3-.79 0-1.09l7-7.04z"/><path d="M4.5 12.75l7.28-7.28a.75.75 0 0 1 1.06 0l6.66 6.66v6.62a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 18.75v-6z"/></svg>
-      <span>ホーム</span>
+      <i class="fa-solid fa-stream"></i>
+      <span>Timeline</span>
     </a>
     <a href="/posts/new" class="justify-self-center -mt-8 inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg active:bg-blue-700" aria-label="投稿する">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-7 h-7"><path fill-rule="evenodd" d="M12 4.5a.75.75 0 01.75.75v6h6a.75.75 0 010 1.5h-6v6a.75.75 0 01-1.5 0v-6h-6a.75.75 0 010-1.5h6v-6A.75.75 0 0112 4.5z" clip-rule="evenodd"/></svg>
     </a>
-    <a th:href="@{'/users/' + ${session.loginUser}}" class="justify-self-end inline-flex items-center gap-2">
-      <span>マイページ</span>
+    <a th:href="@{'/users/' + ${session.loginUser}}" class="justify-self-end inline-flex items-center gap-2 text-gray-600">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <span>Search</span>
     </a>
   </div>
 </nav>
@@ -122,6 +133,25 @@
       });
       document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') hideN(); });
     }
+    const readerToggles = document.querySelectorAll('.reader-toggle');
+    const readerPopups = document.querySelectorAll('.reader-popup');
+    readerToggles.forEach(toggle => {
+      toggle.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const postId = toggle.getAttribute('data-postid');
+        const popup = document.querySelector(`.reader-popup[data-postid='${postId}']`);
+        if (popup) {
+          popup.classList.toggle('hidden');
+        }
+      });
+    });
+    document.addEventListener('click', ()=>{
+      readerPopups.forEach(popup => {
+        if (!popup.classList.contains('hidden')) {
+          popup.classList.add('hidden');
+        }
+      });
+    });
   })();
 </script>
 

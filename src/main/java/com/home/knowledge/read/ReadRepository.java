@@ -23,5 +23,9 @@ public class ReadRepository {
         List<Long> list = jdbcTemplate.query("SELECT post_id FROM reads WHERE username = ?", (rs, i) -> rs.getLong(1), username);
         return new HashSet<>(list);
     }
-}
 
+    public List<String> findReadersByPostId(long postId) {
+        String sql = "SELECT username FROM reads WHERE post_id = ? ORDER BY username";
+        return jdbcTemplate.query(sql, (rs, i) -> rs.getString(1), postId);
+    }
+}
