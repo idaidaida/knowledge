@@ -20,10 +20,10 @@ public class NotificationRepository {
         List<Timestamp> list = jdbcTemplate.query("SELECT last_seen FROM user_last_seen WHERE username = ?",
                 (rs, i) -> rs.getTimestamp(1), username);
         if (list.isEmpty()) {
-            // initialize at current time so the first login does not show historical items
-            Timestamp now = Timestamp.from(Instant.now());
-            upsertLastSeen(username, now);
-            return now;
+            // initialize far past so first login sees all historical items
+            Timestamp initial = Timestamp.from(Instant.EPOCH);
+            upsertLastSeen(username, initial);
+            return initial;
         }
         return list.get(0);
     }

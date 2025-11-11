@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title th:text="${filterUser != null ? filterUser + ' の投稿' : 'ホーム'}">ホーム</title>
+  <title>記事検索</title>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -44,15 +44,46 @@
   </div>
 </header>
 
-<main class="mx-auto max-w-md w-full px-0 pb-28 pt-0">
-  <div th:if="${error}" class="mb-3 rounded-md border border-red-200 bg-red-50 text-red-800 text-sm px-3 py-2" th:text="${error}"></div>
+<main class="mx-auto max-w-md w-full px-4 pb-28 pt-3">
+  <section class="space-y-4">
+    <form method="get" action="/search" class="rounded-xl bg-white shadow-sm border border-gray-200 p-4 space-y-3">
+      <div class="space-y-2">
+        <label class="block text-sm font-medium text-gray-700">投稿者</label>
+        <input class="w-full rounded-md border border-gray-300 px-3 py-2 text-[15px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+               type="text" name="author" placeholder="投稿者名から検索" th:value="${authorFilter}" />
+      </div>
+      <div class="space-y-2">
+        <label class="block text-sm font-medium text-gray-700">フリーワード (タイトル/本文)</label>
+        <input class="w-full rounded-md border border-gray-300 px-3 py-2 text-[15px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+               type="text" name="query" placeholder="タイトル・本文からキーワード検索" th:value="${queryFilter}" />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="flex flex-col text-sm text-gray-700">
+          <span class="font-medium">保存</span>
+          <select name="saved" class="mt-1 rounded-md border border-gray-300 px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="" th:selected="${savedFilter == null}">全て</option>
+            <option value="1" th:selected="${savedFilter == true}">保存済みのみ</option>
+            <option value="0" th:selected="${savedFilter == false}">保存していないのみ</option>
+          </select>
+        </label>
+        <label class="flex flex-col text-sm text-gray-700">
+          <span class="font-medium">既読</span>
+          <select name="read" class="mt-1 rounded-md border border-gray-300 px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="" th:selected="${readFilter == null}">全て</option>
+            <option value="1" th:selected="${readFilter == true}">既読のみ</option>
+            <option value="0" th:selected="${readFilter == false}">未読のみ</option>
+          </select>
+        </label>
+      </div>
+      <div class="flex justify-end">
+        <button type="submit" class="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <span>検索する</span>
+        </button>
+      </div>
+    </form>
 
-  <section>
-    <div class="flex items-center justify-end px-3 py-2">
-      <a th:if="${unreadFilter} == false" href="/?unread=1" class="inline-flex items-center rounded-full border border-gray-300 bg-gray-100 text-gray-600 text-xs px-2 py-1">未読のみ</a>
-      <a th:if="${unreadFilter} == true" href="/" class="inline-flex items-center rounded-full border border-blue-600 bg-blue-600 text-white text-xs px-2 py-1">未読のみ</a>
-    </div>
-    <div th:if="${#lists.isEmpty(posts)}" class="text-center text-gray-500 text-sm py-6">投稿はありません</div>
+    <div th:if="${#lists.isEmpty(posts)}" class="text-center text-gray-500 text-sm py-6">該当する記事がありません</div>
 
     <ul class="bg-white divide-y divide-gray-200">
       <li th:each="post : ${posts}" class="relative">
@@ -74,15 +105,9 @@
                 <i class="fa-solid fa-bookmark text-yellow-400"></i>
                 <span th:text="${likeCounts[post.id] != null ? likeCounts[post.id] : 0}">0</span>
               </span>
-              <span class="flex items-center gap-1 text-gray-500">
+              <span class="flex items-center gap-1">
                 <i class="fa-regular fa-comment"></i>
                 <span th:text="${commentCounts[post.id] != null ? commentCounts[post.id] : 0}">0</span>
-              </span>
-              <span th:if="${newCommentPosts.contains(post.id)}" class="inline-flex items-center gap-1 text-blue-600">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
-                  <path d="M7 8h10v2H7z"/><path d="M7 12h7v2H7z"/><path d="M5 4h14v9H8l-3 3z"/>
-                </svg>
-                <span class="text-[11px] font-semibold tracking-wide">新コメント</span>
               </span>
               <span class="flex items-center gap-1 cursor-pointer reader-toggle" th:attr="data-postid=${post.id}">
                 <i class="fa-regular fa-eye text-gray-500" aria-hidden="true"></i>
