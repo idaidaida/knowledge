@@ -2,6 +2,11 @@ package com.home.knowledge.like;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.util.StringUtils;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @Repository
 public class LikeRepository {
@@ -28,5 +33,13 @@ public class LikeRepository {
     public void unlike(long postId, String username) {
         jdbcTemplate.update("DELETE FROM likes WHERE post_id = ? AND username = ?", postId, username);
     }
-}
 
+    public Set<Long> findPostIdsByUser(String username) {
+        if (!StringUtils.hasText(username)) {
+            return Set.of();
+        }
+        String sql = "SELECT post_id FROM likes WHERE username = ?";
+        List<Long> ids = jdbcTemplate.query(sql, (rs, rowNum) -> rs.getLong("post_id"), username);
+        return new HashSet<>(ids);
+    }
+}

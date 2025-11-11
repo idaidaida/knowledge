@@ -14,10 +14,16 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 @Controller
 public class PostController {
@@ -48,36 +54,121 @@ public class PostController {
                            jakarta.servlet.http.HttpSession session,
                            Model model) {
         var posts = repository.findAll();
+        String user = (String) session.getAttribute("loginUser");
+        Set<Long> readIds = Set.of();
+        if (StringUtils.hasText(user)) {
+            readIds = readRepository.findReadPostIds(user);
+        }
         if (Boolean.TRUE.equals(unread)) {
-            String user = (String) session.getAttribute("loginUser");
-            if (StringUtils.hasText(user)) {
-                var readIds = readRepository.findReadPostIds(user);
-                posts.removeIf(p -> readIds.contains(p.getId()));
-            }
+            var readIdSet = readIds;
+            posts.removeIf(p -> readIdSet.contains(p.getId()));
             model.addAttribute("unreadFilter", true);
         } else {
             model.addAttribute("unreadFilter", false);
         }
         model.addAttribute("posts", posts);
+        model.addAttribute("readPostIds", readIds);
         Map<Long, Integer> likeCounts = new HashMap<>();
-        posts.forEach(p -> likeCounts.put(p.getId(), likeRepository.countByPostId(p.getId())));
+        Map<Long, List<String>> readersByPost = new HashMap<>();
+        Set<Long> postIds = posts.stream().map(p -> p.getId()).collect(Collectors.toSet());
+        Map<Long, Integer> commentCounts = commentRepository.countByPostIds(postIds);
+        model.addAttribute("commentCounts", commentCounts);
+        posts.forEach(p -> {
+            likeCounts.put(p.getId(), likeRepository.countByPostId(p.getId()));
+            readersByPost.put(p.getId(), readRepository.findReadersByPostId(p.getId()));
+        });
         model.addAttribute("likeCounts", likeCounts);
+        model.addAttribute("readersByPost", readersByPost);
         addNotificationsToModel(session, model);
         model.addAttribute("filterUser", null);
         return "timeline";
     }
 
+    @GetMapping("/search")
+    public String search(@RequestParam(required = false) String author,
+                         @RequestParam(required = false) String query,
+                         @RequestParam(required = false) String saved,
+                         @RequestParam(required = false) String read,
+                         jakarta.servlet.http.HttpSession session,
+                         Model model) {
+        List<Post> posts = new ArrayList<>(repository.findAll());
+        String loginUser = (String) session.getAttribute("loginUser");
+        Boolean savedFilter = parseFlag(saved);
+        Boolean readFilter = parseFlag(read);
+        Set<Long> likedPostIds = new HashSet<>();
+        Set<Long> readIds = new HashSet<>();
+        if (StringUtils.hasText(loginUser)) {
+            likedPostIds.addAll(likeRepository.findPostIdsByUser(loginUser.trim()));
+            readIds.addAll(readRepository.findReadPostIds(loginUser.trim()));
+        }
+        if (StringUtils.hasText(author)) {
+            String needle = author.trim().toLowerCase(Locale.ROOT);
+            posts.removeIf(p -> p.getUsername() == null || !p.getUsername().toLowerCase(Locale.ROOT).contains(needle));
+        }
+        if (StringUtils.hasText(query)) {
+            String needle = query.trim().toLowerCase(Locale.ROOT);
+            posts.removeIf(p -> {
+                String titleVal = p.getTitle() != null ? p.getTitle().toLowerCase(Locale.ROOT) : "";
+                String contentVal = p.getContent() != null ? p.getContent().toLowerCase(Locale.ROOT) : "";
+                return !titleVal.contains(needle) && !contentVal.contains(needle);
+            });
+        }
+        if (savedFilter != null) {
+            if (!StringUtils.hasText(loginUser)) {
+                posts.clear();
+            } else if (savedFilter) {
+                posts.removeIf(p -> !likedPostIds.contains(p.getId()));
+            } else {
+                posts.removeIf(p -> likedPostIds.contains(p.getId()));
+            }
+        }
+        if (readFilter != null) {
+            if (!StringUtils.hasText(loginUser)) {
+                posts.clear();
+            } else if (readFilter) {
+                posts.removeIf(p -> !readIds.contains(p.getId()));
+            } else {
+                posts.removeIf(p -> readIds.contains(p.getId()));
+            }
+        }
+        Set<Long> postIds = posts.stream().map(Post::getId).collect(Collectors.toSet());
+        Map<Long, Integer> commentCounts = commentRepository.countByPostIds(postIds);
+        Map<Long, Integer> likeCounts = new HashMap<>();
+        Map<Long, List<String>> readersByPost = new HashMap<>();
+        posts.forEach(p -> {
+            likeCounts.put(p.getId(), likeRepository.countByPostId(p.getId()));
+            readersByPost.put(p.getId(), readRepository.findReadersByPostId(p.getId()));
+        });
+        model.addAttribute("posts", posts);
+        model.addAttribute("likeCounts", likeCounts);
+        model.addAttribute("commentCounts", commentCounts);
+        model.addAttribute("readersByPost", readersByPost);
+        model.addAttribute("savedPostIds", likedPostIds);
+        model.addAttribute("authorFilter", author);
+        model.addAttribute("queryFilter", query);
+        model.addAttribute("savedFilter", savedFilter);
+        model.addAttribute("readFilter", readFilter);
+        addNotificationsToModel(session, model);
+        model.addAttribute("filterUser", null);
+        return "search";
+    }
+
     @GetMapping("/users/{username}")
-    public String userTimeline(@PathVariable String username, Model model) {
+    public String userTimeline(@PathVariable String username, jakarta.servlet.http.HttpSession session, Model model) {
         var posts = repository.findByUsername(username);
         model.addAttribute("posts", posts);
         model.addAttribute("filterUser", username);
+        Set<Long> postIds = posts.stream().map(p -> p.getId()).collect(Collectors.toSet());
+        model.addAttribute("commentCounts", commentRepository.countByPostIds(postIds));
+        addNotificationsToModel(session, model);
         return "timeline";
     }
 
     @PostMapping("/posts")
     public String create(
             @RequestParam(name = "linkUrl") String linkUrl,
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) String summary,
             jakarta.servlet.http.HttpSession session,
             RedirectAttributes redirectAttributes
     ) {
@@ -92,13 +183,15 @@ public class PostController {
         }
         String trimmedLink = linkUrl.trim();
         ArticleAiService.ArticleDraft draft = summaryService.buildDraft(trimmedLink);
+        String finalTitle = StringUtils.hasText(title) ? title.trim() : draft.title();
+        String finalSummary = StringUtils.hasText(summary) ? normalizeSummary(summary) : normalizeSummary(draft.summary());
         var post = repository.save(
                 loginUser.trim(),
-                draft.title(),
+                finalTitle,
                 draft.content(),
                 null,
                 trimmedLink,
-                draft.summary()
+                finalSummary
         );
         notificationRepository.markSeen(loginUser.trim(), "POST", post.getId());
         return "redirect:/posts/" + post.getId();
@@ -133,11 +226,26 @@ public class PostController {
             return "redirect:/";
         }
         var post = opt.get();
+        var comments = commentRepository.findByPostId(id);
         model.addAttribute("post", post);
-        model.addAttribute("comments", commentRepository.findByPostId(id));
+        model.addAttribute("comments", comments);
         String loginUser = (String) session.getAttribute("loginUser");
         model.addAttribute("likeCount", likeRepository.countByPostId(id));
         model.addAttribute("likedByMe", (loginUser != null && likeRepository.likedByUser(id, loginUser)));
+        boolean isRead = false;
+        if (StringUtils.hasText(loginUser)) {
+            readRepository.markRead(id, loginUser.trim());
+            notificationRepository.markSeen(loginUser.trim(), "POST", id);
+            var commentIds = comments.stream()
+                    .map(c -> c.getId())
+                    .collect(java.util.stream.Collectors.toSet());
+            notificationRepository.markCommentsSeen(loginUser.trim(), commentIds);
+            isRead = true;
+        }
+        var readers = readRepository.findReadersByPostId(id);
+        model.addAttribute("readers", readers);
+        model.addAttribute("readersCount", readers.size());
+        model.addAttribute("isRead", isRead);
         addNotificationsToModel(session, model);
         return "post_detail";
     }
@@ -158,6 +266,28 @@ public class PostController {
             return "redirect:/posts/" + id;
         }
         return "redirect:" + link;
+    }
+
+    @PostMapping(value = "/posts/preview", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public Map<String, String> preview(@RequestParam(name = "linkUrl") String linkUrl) {
+        var draft = summaryService.buildDraft(linkUrl.trim());
+        String summary = draft.summary();
+        if (summary.length() > 300) {
+            summary = summary.substring(0, 300);
+        }
+        summary = summary.replaceAll("\\s+", " ").trim();
+        Map<String, String> body = new HashMap<>();
+        body.put("title", draft.title());
+        body.put("summary", normalizeSummary(summary));
+        body.put("content", draft.content());
+        return body;
+    }
+
+    private String normalizeSummary(String raw) {
+        if (!StringUtils.hasText(raw)) return "";
+        String trimmed = raw.trim().replaceAll("\\s+", " ");
+        return trimmed.length() > 300 ? trimmed.substring(0, 300) : trimmed;
     }
 
     @org.springframework.web.bind.annotation.PostMapping("/notifications/seen")
@@ -196,8 +326,20 @@ public class PostController {
         }
     }
 
+    private Boolean parseFlag(String value) {
+        if ("1".equals(value)) {
+            return true;
+        }
+        if ("0".equals(value)) {
+            return false;
+        }
+        return null;
+    }
+
     @GetMapping("/posts/new")
-    public String newPost(Model model) {
+    public String newPost(jakarta.servlet.http.HttpSession session, Model model) {
+        addNotificationsToModel(session, model);
+        model.addAttribute("filterUser", null);
         return "post_new";
     }
 
