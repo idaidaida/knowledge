@@ -4,6 +4,7 @@ import com.home.knowledge.comment.CommentRepository;
 import com.home.knowledge.like.LikeRepository;
 import com.home.knowledge.notify.NotificationRepository;
 import com.home.knowledge.read.ReadRepository;
+import com.home.knowledge.summary.ArticleAiService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
@@ -13,6 +14,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 @Controller
 public class PostController {
 
@@ -21,17 +27,20 @@ public class PostController {
     private final LikeRepository likeRepository;
     private final ReadRepository readRepository;
     private final NotificationRepository notificationRepository;
+    private final ArticleAiService summaryService;
 
     public PostController(PostRepository repository,
                           CommentRepository commentRepository,
                           LikeRepository likeRepository,
                           ReadRepository readRepository,
-                          NotificationRepository notificationRepository) {
+                          NotificationRepository notificationRepository,
+                          ArticleAiService summaryService) {
         this.repository = repository;
         this.commentRepository = commentRepository;
         this.likeRepository = likeRepository;
         this.readRepository = readRepository;
         this.notificationRepository = notificationRepository;
+        this.summaryService = summaryService;
     }
 
     @GetMapping("/")
@@ -50,6 +59,9 @@ public class PostController {
             model.addAttribute("unreadFilter", false);
         }
         model.addAttribute("posts", posts);
+        Map<Long, Integer> likeCounts = new HashMap<>();
+        posts.forEach(p -> likeCounts.put(p.getId(), likeRepository.countByPostId(p.getId())));
+        model.addAttribute("likeCounts", likeCounts);
         addNotificationsToModel(session, model);
         model.addAttribute("filterUser", null);
         return "timeline";
@@ -65,10 +77,7 @@ public class PostController {
 
     @PostMapping("/posts")
     public String create(
-            @RequestParam(required = false) String title,
-            @RequestParam String content,
             @RequestParam(name = "linkUrl") String linkUrl,
-            @RequestParam(required = false, name = "imageUrl") String imageUrl,
             jakarta.servlet.http.HttpSession session,
             RedirectAttributes redirectAttributes
     ) {
@@ -77,16 +86,19 @@ public class PostController {
             redirectAttributes.addFlashAttribute("error", "投稿するにはログインが必要です");
             return "redirect:/login";
         }
-        if (!StringUtils.hasText(content) || !StringUtils.hasText(linkUrl)) {
-            redirectAttributes.addFlashAttribute("error", "本文とニュースURLは必須です");
+        if (!StringUtils.hasText(linkUrl)) {
+            redirectAttributes.addFlashAttribute("error", "ニュースURLは必須です");
             return "redirect:/posts/new";
         }
+        String trimmedLink = linkUrl.trim();
+        ArticleAiService.ArticleDraft draft = summaryService.buildDraft(trimmedLink);
         var post = repository.save(
                 loginUser.trim(),
-                (title != null ? title.trim() : null),
-                content.trim(),
-                (imageUrl != null ? imageUrl.trim() : null),
-                linkUrl.trim()
+                draft.title(),
+                draft.content(),
+                null,
+                trimmedLink,
+                draft.summary()
         );
         notificationRepository.markSeen(loginUser.trim(), "POST", post.getId());
         return "redirect:/posts/" + post.getId();
@@ -165,9 +177,22 @@ public class PostController {
             var list = notificationRepository.listUnread(user, 10);
             model.addAttribute("notificationCount", count);
             model.addAttribute("notifications", list);
+            Set<Long> newPostIds = new HashSet<>();
+            Set<Long> newCommentPosts = new HashSet<>();
+            for (var row : list) {
+                if ("POST".equals(row.kind)) {
+                    newPostIds.add(row.refId);
+                } else if ("COMMENT".equals(row.kind) && row.postId != null) {
+                    newCommentPosts.add(row.postId);
+                }
+            }
+            model.addAttribute("newPostIds", newPostIds);
+            model.addAttribute("newCommentPosts", newCommentPosts);
         } else {
             model.addAttribute("notificationCount", 0);
             model.addAttribute("notifications", java.util.List.of());
+            model.addAttribute("newPostIds", Set.of());
+            model.addAttribute("newCommentPosts", Set.of());
         }
     }
 

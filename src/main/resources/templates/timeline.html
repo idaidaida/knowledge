@@ -63,9 +63,24 @@
                       th:text="${post.username}">username</button>
               <span class="mx-1">・</span>
               <span th:text="${#dates.format(post.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
+              <span th:if="${newPostIds.contains(post.id)}" class="ml-2 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-blue-600">新記事</span>
             </div>
             <div class="mt-0.5 text-[15px] font-semibold text-gray-900 overflow-hidden" style="-webkit-line-clamp: 1; display: -webkit-box; -webkit-box-orient: vertical;" th:text="${#strings.isEmpty(post.title) ? 'タイトル' : post.title}"></div>
-            <div class="mt-0.5 text-sm text-gray-700 overflow-hidden whitespace-pre-line" style="-webkit-line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical;" th:text="${post.content}"></div>
+            <p th:if="${!#strings.isEmpty(post.summary)}" class="mt-1 text-sm text-gray-600 overflow-hidden whitespace-pre-line" style="-webkit-line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical;" th:text="${post.summary}"></p>
+            <div class="mt-2 flex items-center gap-4 text-xs text-gray-500">
+              <span class="flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" class="w-4 h-4 text-red-500">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                </svg>
+                <span th:text="${likeCounts[post.id] != null ? likeCounts[post.id] : 0}">0</span>
+              </span>
+              <span th:if="${newCommentPosts.contains(post.id)}" class="inline-flex items-center gap-1 text-blue-600">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+                  <path d="M7 8h10v2H7z"/><path d="M7 12h7v2H7z"/><path d="M5 4h14v9H8l-3 3z"/>
+                </svg>
+                <span class="text-[11px] font-semibold tracking-wide">新コメント</span>
+              </span>
+            </div>
           </div>
         </a>
       </li>
