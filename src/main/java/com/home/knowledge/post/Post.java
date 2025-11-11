@@ -9,15 +9,17 @@ public class Post {
     private final String content;
     private final String imageUrl;
     private final String linkUrl;
+    private final String summary;
     private final Instant createdAt;
 
-    public Post(long id, String username, String title, String content, String imageUrl, String linkUrl, Instant createdAt) {
+    public Post(long id, String username, String title, String content, String imageUrl, String linkUrl, String summary, Instant createdAt) {
         this.id = id;
         this.username = username;
         this.title = title;
         this.content = content;
         this.imageUrl = imageUrl;
         this.linkUrl = linkUrl;
+        this.summary = summary;
         this.createdAt = createdAt;
     }
 
@@ -27,5 +29,6 @@ public class Post {
     public String getContent() { return content; }
     public String getImageUrl() { return imageUrl; }
     public String getLinkUrl() { return linkUrl; }
+    public String getSummary() { return summary; }
     public Instant getCreatedAt() { return createdAt; }
 }
