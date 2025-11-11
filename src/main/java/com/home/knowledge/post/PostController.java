@@ -5,6 +5,7 @@ import com.home.knowledge.like.LikeRepository;
 import com.home.knowledge.notify.NotificationRepository;
 import com.home.knowledge.read.ReadRepository;
 import com.home.knowledge.summary.ArticleAiService;
+import com.home.knowledge.markdown.MarkdownService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
@@ -34,19 +35,22 @@ public class PostController {
     private final ReadRepository readRepository;
     private final NotificationRepository notificationRepository;
     private final ArticleAiService summaryService;
+    private final MarkdownService markdownService;
 
     public PostController(PostRepository repository,
                           CommentRepository commentRepository,
                           LikeRepository likeRepository,
                           ReadRepository readRepository,
                           NotificationRepository notificationRepository,
-                          ArticleAiService summaryService) {
+                          ArticleAiService summaryService,
+                          MarkdownService markdownService) {
         this.repository = repository;
         this.commentRepository = commentRepository;
         this.likeRepository = likeRepository;
         this.readRepository = readRepository;
         this.notificationRepository = notificationRepository;
         this.summaryService = summaryService;
+        this.markdownService = markdownService;
     }
 
     @GetMapping("/")
@@ -230,6 +234,7 @@ public class PostController {
         var post = opt.get();
         var comments = commentRepository.findByPostId(id);
         model.addAttribute("post", post);
+        model.addAttribute("postContentHtml", markdownService.render(post.getContent()));
         model.addAttribute("comments", comments);
         String loginUser = (String) session.getAttribute("loginUser");
         model.addAttribute("likeCount", likeRepository.countByPostId(id));

@@ -15,16 +15,20 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.text.BreakIterator;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
+import java.util.regex.Pattern;
 
 @Component
 public class ArticleAiService {
     private static final Logger log = LoggerFactory.getLogger(ArticleAiService.class);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(15);
     private static final String USER_AGENT = "Mozilla/5.0 (compatible; KnowledgeFetcher/1.0)";
+    private static final Pattern FIGURE_PATTERN = Pattern.compile("(図|Fig(?:\\.|ure)?)\\s*[0-9０-９]+", Pattern.CASE_INSENSITIVE);
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
@@ -40,11 +44,13 @@ public class ArticleAiService {
 
     public ArticleDraft buildDraft(String url) {
         String text = fetchArticleText(url);
+        String normalizedText = normalizeBody(text);
         String title = extractTitle(url);
-        if (!StringUtils.hasText(apiKey) || !StringUtils.hasText(text)) {
-            return ArticleDraft.of(title, text, createSummaryFallback(text));
+        if (!StringUtils.hasText(apiKey) || !StringUtils.hasText(normalizedText)) {
+            String structured = buildStructuredMarkdown(normalizedText);
+            return ArticleDraft.of(title, structured, createSummaryFallback(normalizedText));
         }
-        String prompt = createPrompt(text);
+        String prompt = createPrompt(normalizedText);
         Map<String, Object> payload = Map.of(
                 "model", "gpt-3.5-turbo",
                 "temperature", 0.3,
@@ -72,8 +78,8 @@ public class ArticleAiService {
                 String trimmed = content.asText().trim();
                 JsonNode parsed = objectMapper.readTree(trimmed);
                 String aiTitle = parsed.path("title").asText(title);
-                String aiContent = parsed.path("content").asText(text);
-                String aiSummary = parsed.path("summary").asText(createSummaryFallback(text));
+                String aiContent = ensureReadableContent(parsed.path("content").asText(), normalizedText);
+                String aiSummary = ensureSummaryText(parsed.path("summary").asText(), aiContent);
                 return ArticleDraft.of(aiTitle, aiContent, aiSummary);
             }
         } catch (IOException e) {
@@ -82,7 +88,7 @@ public class ArticleAiService {
             Thread.currentThread().interrupt();
             log.warn("Summarization interrupted for {}", url, e);
         }
-        return ArticleDraft.of(title, text, createSummaryFallback(text));
+        return ArticleDraft.of(title, buildStructuredMarkdown(normalizedText), createSummaryFallback(normalizedText));
     }
 
     private String extractTitle(String url) {
@@ -112,17 +118,112 @@ public class ArticleAiService {
 
     private String createPrompt(String text) {
         String summaryText = text.length() > 2000 ? text.substring(0, 2000) : text;
-        return "このニュース記事から、JSON形式で次のキーを返してください。"
-                + " title（日本語の見出し/40文字以内）、"
-                + " content（記事を読みやすく再構成したうえで、情報を漏らさずに詳細を記載）、"
-                + " summary（記事の内容を読みたくなるような照会文・200字未満）。"
-                + " 記事は次の内容です：\n" + summaryText;
+        return """
+以下のニュース記事を読み、日本語のJSON文字列で次のキーを含めて返してください。
+- title: 40字以内の見出し
+- content: Markdown形式で、導入・詳細・ポイントなどの見出し(##)や太字(**)・箇条書きを使い、記事全体を構造的かつ詳細にまとめた本文
+- summary: 2文以内で記事の概要と「どんな人が読むと良いか」を必ず含める。例) "概要: ...。対象: ...な人におすすめ。"
+
+記事本文:
+""" + summaryText;
     }
 
     private String createSummaryFallback(String text) {
-        if (!StringUtils.hasText(text))
+        String normalized = normalizeBody(text);
+        if (!StringUtils.hasText(normalized)) {
             return "";
-        return text.length() > 200 ? text.substring(0, 200) + "..." : text;
+        }
+        String singleLine = normalized.replaceAll("\\s+", " ").trim();
+        String overview = singleLine.length() > 140 ? singleLine.substring(0, 140) + "..." : singleLine;
+        return "概要: " + overview + "。対象: 最新動向を素早く把握したい人におすすめ。";
+    }
+
+    private String ensureReadableContent(String candidate, String fallbackSource) {
+        String normalized = normalizeBody(candidate);
+        if (!StringUtils.hasText(normalized)) {
+            return buildStructuredMarkdown(fallbackSource);
+        }
+        if (containsMarkdownHints(normalized)) {
+            return normalized;
+        }
+        return buildStructuredMarkdown(normalized);
+    }
+
+    private String ensureSummaryText(String candidate, String contentSource) {
+        String normalized = normalizeBody(candidate);
+        if (!StringUtils.hasText(normalized)) {
+            return createSummaryFallback(contentSource);
+        }
+        if (normalized.contains("概要:") && normalized.contains("対象:")) {
+            return normalized;
+        }
+        return createSummaryFallback(normalized);
+    }
+
+    private boolean containsMarkdownHints(String text) {
+        if (!StringUtils.hasText(text)) {
+            return false;
+        }
+        return text.contains("## ") || text.contains("**") || text.contains("\n- ") || text.contains("\n* ");
+    }
+
+    private String buildStructuredMarkdown(String text) {
+        String normalized = normalizeBody(text);
+        if (!StringUtils.hasText(normalized)) {
+            return "";
+        }
+        List<String> sentences = splitIntoSentences(normalized);
+        if (sentences.isEmpty()) {
+            return normalized;
+        }
+        StringBuilder md = new StringBuilder();
+        md.append("## 要約\n\n").append(sentences.get(0)).append("\n\n");
+        if (sentences.size() > 1) {
+            md.append("## 注目ポイント\n\n");
+            sentences.stream()
+                    .skip(1)
+                    .limit(4)
+                    .forEach(s -> md.append("- ").append(s).append("\n"));
+            md.append("\n");
+        }
+        md.append("## 詳細\n\n");
+        for (int i = 0; i < sentences.size(); i++) {
+            md.append(sentences.get(i));
+            if ((i + 1) % 3 == 0 || i == sentences.size() - 1) {
+                md.append("\n\n");
+            } else {
+                md.append(" ");
+            }
+        }
+        return md.toString().trim();
+    }
+
+    private List<String> splitIntoSentences(String text) {
+        List<String> sentences = new ArrayList<>();
+        if (!StringUtils.hasText(text)) {
+            return sentences;
+        }
+        BreakIterator iterator = BreakIterator.getSentenceInstance(Locale.JAPANESE);
+        iterator.setText(text);
+        int start = iterator.first();
+        for (int end = iterator.next(); end != BreakIterator.DONE; start = end, end = iterator.next()) {
+            String sentence = text.substring(start, end).trim();
+            if (StringUtils.hasText(sentence)) {
+                sentences.add(sentence);
+            }
+        }
+        return sentences;
+    }
+
+    private String normalizeBody(String text) {
+        if (!StringUtils.hasText(text)) {
+            return "";
+        }
+        String normalized = text.replace("\r\n", "\n");
+        normalized = FIGURE_PATTERN.matcher(normalized).replaceAll("この図");
+        normalized = normalized.replaceAll("[ \t]{2,}", " ");
+        normalized = normalized.replaceAll("\\n{3,}", "\n\n");
+        return normalized.trim();
     }
 
     public record ArticleDraft(String title, String content, String summary) {
