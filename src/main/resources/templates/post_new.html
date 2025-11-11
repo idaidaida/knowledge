@@ -84,7 +84,7 @@
     </div>
     <input type="hidden" id="generatedContent" name="content" />
     <div class="flex justify-end">
-      <button type="submit" class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm active:bg-blue-700">投稿する</button>
+      <button id="submitBtn" type="submit" class="hidden inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white shadow-sm active:bg-blue-700">投稿する</button>
     </div>
   </form>
 </main>
@@ -156,6 +156,7 @@
     const titleInput = document.getElementById('generatedTitle');
     const summaryInput = document.getElementById('generatedSummary');
     const contentInput = document.getElementById('generatedContent');
+    const submitBtn = document.getElementById('submitBtn');
 
     if (!btn || !linkInput) return;
 
@@ -187,6 +188,8 @@
       btn.setAttribute('disabled', 'true');
       toggleLoader(true);
       preview?.classList.add('hidden');
+      // hide submit until AI summary finishes
+      submitBtn?.classList.add('hidden');
 
       try {
         const response = await fetch('/posts/preview', {
@@ -205,6 +208,8 @@
         if (summaryInput) summaryInput.value = data.summary || '';
         if (contentInput) contentInput.value = data.content || '';
         preview?.classList.remove('hidden');
+        // show submit when AI summary completed
+        submitBtn?.classList.remove('hidden');
       } catch (err) {
         showError(err.message || 'AIの取得に失敗しました');
       } finally {

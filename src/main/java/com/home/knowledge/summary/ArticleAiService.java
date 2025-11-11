@@ -51,9 +51,7 @@ public class ArticleAiService {
                 "max_tokens", 400,
                 "messages", List.of(
                         Map.of("role", "system", "content", "あなたは日本語のニュースを要約し、タイトルと本文を整える編集者です。"),
-                        Map.of("role", "user", "content", prompt)
-                )
-        );
+                        Map.of("role", "user", "content", prompt)));
         try {
             String body = objectMapper.writeValueAsString(payload);
             HttpRequest request = HttpRequest.newBuilder()
@@ -116,19 +114,21 @@ public class ArticleAiService {
         String summaryText = text.length() > 2000 ? text.substring(0, 2000) : text;
         return "このニュース記事から、JSON形式で次のキーを返してください。"
                 + " title（日本語の見出し/40文字以内）、"
-                + " content（スマホ向けの本文・100字程度）、"
-                + " summary（さらに短く要約・80字未満）。"
+                + " content（新聞記者のようにわかりやすく端的で、かつ詳細な記事の内容）、"
+                + " summary（記事の内容を読みたくなるような照会文・200字未満）。"
                 + " 記事は次の内容です：\n" + summaryText;
     }
 
     private String createSummaryFallback(String text) {
-        if (!StringUtils.hasText(text)) return "";
+        if (!StringUtils.hasText(text))
+            return "";
         return text.length() > 200 ? text.substring(0, 200) + "..." : text;
     }
 
     public record ArticleDraft(String title, String content, String summary) {
         public static ArticleDraft of(String title, String content, String summary) {
-            return new ArticleDraft(title != null ? title : "", content != null ? content : "", summary != null ? summary : "");
+            return new ArticleDraft(title != null ? title : "", content != null ? content : "",
+                    summary != null ? summary : "");
         }
     }
 }

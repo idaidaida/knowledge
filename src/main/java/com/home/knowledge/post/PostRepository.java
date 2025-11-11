@@ -39,7 +39,7 @@ public class PostRepository {
         Instant now = Instant.now();
 
         jdbcTemplate.update(con -> {
-            PreparedStatement ps = con.prepareStatement(sql, new String[]{"ID"});
+            PreparedStatement ps = con.prepareStatement(sql, new String[]{"id"});
             ps.setString(1, username);
             ps.setString(2, title);
             ps.setString(3, content);

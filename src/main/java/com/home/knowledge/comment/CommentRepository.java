@@ -32,7 +32,7 @@ public class CommentRepository {
         KeyHolder kh = new GeneratedKeyHolder();
         Instant now = Instant.now();
         jdbcTemplate.update(con -> {
-            PreparedStatement ps = con.prepareStatement(sql, new String[]{"ID"});
+            PreparedStatement ps = con.prepareStatement(sql, new String[]{"id"});
             ps.setLong(1, postId);
             ps.setString(2, username);
             ps.setString(3, content);
