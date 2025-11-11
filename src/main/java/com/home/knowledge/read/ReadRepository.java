@@ -16,7 +16,10 @@ public class ReadRepository {
     }
 
     public void markRead(long postId, String username) {
-        jdbcTemplate.update("MERGE INTO reads (post_id, username) KEY(post_id, username) VALUES (?, ?)", postId, username);
+        jdbcTemplate.update(
+                "INSERT INTO reads (post_id, username) VALUES (?, ?) ON CONFLICT (post_id, username) DO NOTHING",
+                postId, username
+        );
     }
 
     public Set<Long> findReadPostIds(String username) {

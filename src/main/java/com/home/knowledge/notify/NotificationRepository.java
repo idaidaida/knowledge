@@ -29,7 +29,11 @@ public class NotificationRepository {
     }
 
     public void upsertLastSeen(String username, Timestamp ts) {
-        jdbcTemplate.update("MERGE INTO user_last_seen (username, last_seen) KEY(username) VALUES (?, ?)", username, ts);
+        jdbcTemplate.update(
+                "INSERT INTO user_last_seen (username, last_seen) VALUES (?, ?) " +
+                        "ON CONFLICT (username) DO UPDATE SET last_seen = EXCLUDED.last_seen",
+                username, ts
+        );
     }
 
     public int countUnread(String username) {
@@ -64,13 +68,21 @@ public class NotificationRepository {
     }
 
     public void markSeen(String username, String kind, long refId) {
-        jdbcTemplate.update("MERGE INTO user_seen_items (username, kind, ref_id) KEY(username, kind, ref_id) VALUES (?, ?, ?)", username, kind, refId);
+        jdbcTemplate.update(
+                "INSERT INTO user_seen_items (username, kind, ref_id) VALUES (?, ?, ?) " +
+                        "ON CONFLICT (username, kind, ref_id) DO NOTHING",
+                username, kind, refId
+        );
     }
 
     public void markCommentsSeen(String username, Set<Long> commentIds) {
         if (commentIds == null || commentIds.isEmpty()) return;
         for (Long id : commentIds) {
-            jdbcTemplate.update("MERGE INTO user_seen_items (username, kind, ref_id) KEY(username, kind, ref_id) VALUES (?, 'COMMENT', ?)", username, id);
+            jdbcTemplate.update(
+                    "INSERT INTO user_seen_items (username, kind, ref_id) VALUES (?, 'COMMENT', ?) " +
+                            "ON CONFLICT (username, kind, ref_id) DO NOTHING",
+                    username, id
+            );
         }
     }
 

@@ -27,7 +27,10 @@ public class LikeRepository {
     }
 
     public void like(long postId, String username) {
-        jdbcTemplate.update("MERGE INTO likes (post_id, username) KEY(post_id, username) VALUES (?, ?)", postId, username);
+        jdbcTemplate.update(
+                "INSERT INTO likes (post_id, username) VALUES (?, ?) ON CONFLICT (post_id, username) DO NOTHING",
+                postId, username
+        );
     }
 
     public void unlike(long postId, String username) {
