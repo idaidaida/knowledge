@@ -114,7 +114,7 @@ public class ArticleAiService {
         String summaryText = text.length() > 2000 ? text.substring(0, 2000) : text;
         return "このニュース記事から、JSON形式で次のキーを返してください。"
                 + " title（日本語の見出し/40文字以内）、"
-                + " content（新聞記者のようにわかりやすく端的で、かつ詳細な記事の内容）、"
+                + " content（記事を読みやすく再構成したうえで、情報を漏らさずに詳細を記載）、"
                 + " summary（記事の内容を読みたくなるような照会文・200字未満）。"
                 + " 記事は次の内容です：\n" + summaryText;
     }
