@@ -71,7 +71,7 @@
             <p th:if="${!#strings.isEmpty(post.summary)}" class="mt-1 text-sm text-gray-600 overflow-hidden whitespace-pre-line" style="-webkit-line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical;" th:text="${post.summary}"></p>
             <div class="mt-2 flex items-center gap-4 text-xs text-gray-500">
               <span class="flex items-center gap-1">
-                <i class="fa-solid fa-star text-yellow-400"></i>
+                <i class="fa-solid fa-bookmark text-yellow-400"></i>
                 <span th:text="${likeCounts[post.id] != null ? likeCounts[post.id] : 0}">0</span>
               </span>
               <span th:if="${newCommentPosts.contains(post.id)}" class="inline-flex items-center gap-1 text-blue-600">

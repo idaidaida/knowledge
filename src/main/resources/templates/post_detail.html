@@ -55,7 +55,6 @@
         </svg>
       </button>
       <div id="postMenu" class="hidden absolute right-0 mt-1 w-28 rounded-md border border-gray-200 bg-white shadow-lg py-1 text-sm">
-        <a th:href="@{'/posts/' + ${post.id} + '/edit'}" class="block px-3 py-1.5 text-gray-700 hover:bg-gray-50">編集</a>
         <form th:action="@{'/posts/' + ${post.id} + '/delete'}" method="post">
           <button type="submit" class="block w-full text-left px-3 py-1.5 text-gray-700 hover:bg-gray-50">削除</button>
         </form>
@@ -80,8 +79,8 @@
 
     <div class="mt-2 flex items-center gap-3 relative">
       <form th:action="@{${likedByMe} ? '/posts/' + ${post.id} + '/unlike' : '/posts/' + ${post.id} + '/like'}" method="post" data-like-toggle>
-        <button type="submit" class="flex items-center gap-1 text-sm font-semibold text-red-600" th:attr="data-next-message=${likedByMe} ? 'いいねを解除しました' : 'いいねを登録しました'">
-          <i class="fa-solid fa-star text-yellow-400"></i>
+        <button type="submit" class="flex items-center gap-1 text-sm font-semibold text-red-600" th:attr="data-next-message=${likedByMe} ? '保存を解除しました' : '保存しました'">
+          <i class="fa-solid fa-bookmark text-yellow-400"></i>
           <span th:text="${likeCount}">0</span>
         </button>
       </form>
@@ -123,12 +122,11 @@
           </button>
         </div>
         <div class="mt-1 text-sm text-gray-800 whitespace-pre-line" th:text="${c.content}"></div>
-        <div id="comment-menu-${c.id}" class="hidden absolute right-3 top-8 w-32 rounded-md border border-gray-200 bg-white shadow-lg py-1 text-sm z-50">
-          <a th:href="@{'/comments/' + ${c.id} + '/edit'}" class="block px-3 py-1.5 text-gray-700 hover:bg-gray-50">編集</a>
-          <form th:action="@{'/comments/' + ${c.id} + '/delete'}" method="post">
-            <button type="submit" class="w-full text-left px-3 py-1.5 text-gray-700 hover:bg-gray-50">削除</button>
-          </form>
-        </div>
+            <div id="comment-menu-${c.id}" class="hidden absolute right-3 top-8 w-28 rounded-md border border-gray-200 bg-white shadow-lg py-1 text-sm z-50">
+              <form th:action="@{'/comments/' + ${c.id} + '/delete'}" method="post">
+                <button type="submit" class="w-full text-left px-3 py-1.5 text-gray-700 hover:bg-gray-50">削除</button>
+              </form>
+            </div>
       </li>
     </ul>
   </section>

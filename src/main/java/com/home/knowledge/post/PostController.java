@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 @Controller
 public class PostController {
@@ -88,6 +90,8 @@ public class PostController {
     @PostMapping("/posts")
     public String create(
             @RequestParam(name = "linkUrl") String linkUrl,
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) String summary,
             jakarta.servlet.http.HttpSession session,
             RedirectAttributes redirectAttributes
     ) {
@@ -102,13 +106,15 @@ public class PostController {
         }
         String trimmedLink = linkUrl.trim();
         ArticleAiService.ArticleDraft draft = summaryService.buildDraft(trimmedLink);
+        String finalTitle = StringUtils.hasText(title) ? title.trim() : draft.title();
+        String finalSummary = StringUtils.hasText(summary) ? normalizeSummary(summary) : normalizeSummary(draft.summary());
         var post = repository.save(
                 loginUser.trim(),
-                draft.title(),
+                finalTitle,
                 draft.content(),
                 null,
                 trimmedLink,
-                draft.summary()
+                finalSummary
         );
         notificationRepository.markSeen(loginUser.trim(), "POST", post.getId());
         return "redirect:/posts/" + post.getId();
@@ -185,6 +191,28 @@ public class PostController {
         return "redirect:" + link;
     }
 
+    @PostMapping(value = "/posts/preview", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public Map<String, String> preview(@RequestParam(name = "linkUrl") String linkUrl) {
+        var draft = summaryService.buildDraft(linkUrl.trim());
+        String summary = draft.summary();
+        if (summary.length() > 300) {
+            summary = summary.substring(0, 300);
+        }
+        summary = summary.replaceAll("\\s+", " ").trim();
+        Map<String, String> body = new HashMap<>();
+        body.put("title", draft.title());
+        body.put("summary", normalizeSummary(summary));
+        body.put("content", draft.content());
+        return body;
+    }
+
+    private String normalizeSummary(String raw) {
+        if (!StringUtils.hasText(raw)) return "";
+        String trimmed = raw.trim().replaceAll("\\s+", " ");
+        return trimmed.length() > 300 ? trimmed.substring(0, 300) : trimmed;
+    }
+
     @org.springframework.web.bind.annotation.PostMapping("/notifications/seen")
     public String markNotificationsSeen(jakarta.servlet.http.HttpSession session, jakarta.servlet.http.HttpServletRequest request) {
         String user = (String) session.getAttribute("loginUser");
@@ -222,7 +250,9 @@ public class PostController {
     }
 
     @GetMapping("/posts/new")
-    public String newPost(Model model) {
+    public String newPost(jakarta.servlet.http.HttpSession session, Model model) {
+        addNotificationsToModel(session, model);
+        model.addAttribute("filterUser", null);
         return "post_new";
     }
 
