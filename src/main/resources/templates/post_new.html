@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ja">
   <head>
     <meta charset="UTF-8" />
@@ -171,9 +171,7 @@
         </div>
         <div id="aiPreview" class="hidden space-y-3">
           <div>
-            <label class="block text-sm font-medium text-gray-700"
-              >タイトル</label
-            >
+            <label class="block text-sm font-medium text-gray-700">タイトル</label>
             <input
               class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               type="text"
@@ -183,17 +181,26 @@
             />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700">要約</label>
+            <label class="block text-sm font-medium text-gray-700">要約（300文字以内推奨）</label>
             <textarea
               class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               id="generatedSummary"
               name="summary"
               rows="4"
-              placeholder="AIが生成した要約"
+              placeholder="AIが生成した要約がここに表示されます"
+            ></textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">本文（content）</label>
+            <textarea
+              class="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              id="generatedContent"
+              name="content"
+              rows="8"
+              placeholder="AIが生成した本文がここに表示されます"
             ></textarea>
           </div>
         </div>
-        <input type="hidden" id="generatedContent" name="content" />
         <div class="flex justify-end">
           <button
             id="submitBtn"
@@ -377,3 +384,4 @@
     </script>
   </body>
 </html>
+

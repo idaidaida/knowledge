@@ -169,6 +169,7 @@ public class PostController {
             @RequestParam(name = "linkUrl") String linkUrl,
             @RequestParam(required = false) String title,
             @RequestParam(required = false) String summary,
+            @RequestParam(required = false) String content,
             jakarta.servlet.http.HttpSession session,
             RedirectAttributes redirectAttributes
     ) {
@@ -185,10 +186,11 @@ public class PostController {
         ArticleAiService.ArticleDraft draft = summaryService.buildDraft(trimmedLink);
         String finalTitle = StringUtils.hasText(title) ? title.trim() : draft.title();
         String finalSummary = StringUtils.hasText(summary) ? normalizeSummary(summary) : normalizeSummary(draft.summary());
+        String finalContent = StringUtils.hasText(content) ? content.trim() : draft.content();
         var post = repository.save(
                 loginUser.trim(),
                 finalTitle,
-                draft.content(),
+                finalContent,
                 null,
                 trimmedLink,
                 finalSummary
