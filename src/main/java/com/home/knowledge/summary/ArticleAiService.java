@@ -119,23 +119,18 @@ public class ArticleAiService {
     private String createPrompt(String text) {
         String summaryText = text.length() > 2000 ? text.substring(0, 2000) : text;
         return """
-以下のニュース記事を読み、日本語のJSON文字列で次のキーを含めて返してください。
-- title: 40字以内の見出し
-- content: Markdown形式で、導入・詳細・ポイントなどの見出し(##)や太字(**)・箇条書きを使い、記事全体を構造的かつ詳細にまとめた本文
-- summary: 2文以内で記事の概要と「どんな人が読むと良いか」を必ず含める。例) "概要: ...。対象: ...な人におすすめ。"
+以下のニュース記事を読み、日本語のJSON文字列で次のキーを必ず含めて返してください。
+- title: 40字以内の見出し。
+- content: Markdown形式で3〜4個の見出し(##)を用い、各見出しの本文は2〜3文で要点のみを落ち着いた文体でまとめる。記事に含まれていない情報や推測は書かない。
+- summary: 3〜5行（改行区切り）の紹介文。静かなトーンで読者の関心を喚起し、どんな人が読むと良いかを示す。
+- 図や画像への参照語（例: 図1、Fig.2）は使わず、文章だけで説明する。
 
 記事本文:
 """ + summaryText;
     }
 
     private String createSummaryFallback(String text) {
-        String normalized = normalizeBody(text);
-        if (!StringUtils.hasText(normalized)) {
-            return "";
-        }
-        String singleLine = normalized.replaceAll("\\s+", " ").trim();
-        String overview = singleLine.length() > 140 ? singleLine.substring(0, 140) + "..." : singleLine;
-        return "概要: " + overview + "。対象: 最新動向を素早く把握したい人におすすめ。";
+        return craftCalmSummary(text);
     }
 
     private String ensureReadableContent(String candidate, String fallbackSource) {
@@ -143,21 +138,22 @@ public class ArticleAiService {
         if (!StringUtils.hasText(normalized)) {
             return buildStructuredMarkdown(fallbackSource);
         }
-        if (containsMarkdownHints(normalized)) {
-            return normalized;
+        String concise = shortenContent(normalized);
+        if (containsMarkdownHints(concise)) {
+            return concise;
         }
-        return buildStructuredMarkdown(normalized);
+        return buildStructuredMarkdown(concise);
     }
 
     private String ensureSummaryText(String candidate, String contentSource) {
         String normalized = normalizeBody(candidate);
         if (!StringUtils.hasText(normalized)) {
-            return createSummaryFallback(contentSource);
+            return craftCalmSummary(contentSource);
         }
-        if (normalized.contains("概要:") && normalized.contains("対象:")) {
+        if (normalized.contains("紹介:") && normalized.contains("対象:")) {
             return normalized;
         }
-        return createSummaryFallback(normalized);
+        return craftCalmSummary(normalized);
     }
 
     private boolean containsMarkdownHints(String text) {
@@ -165,6 +161,103 @@ public class ArticleAiService {
             return false;
         }
         return text.contains("## ") || text.contains("**") || text.contains("\n- ") || text.contains("\n* ");
+    }
+
+    private String craftCalmSummary(String source) {
+        String normalized = normalizeBody(source);
+        if (!StringUtils.hasText(normalized)) {
+            return "";
+        }
+        List<String> sentences = splitIntoSentences(normalized);
+        List<String> chosen = new ArrayList<>();
+        for (String sentence : sentences) {
+            String trimmed = ensureSentenceClosed(sentence.trim());
+            if (!StringUtils.hasText(trimmed)) continue;
+            chosen.add(trimmed);
+            if (chosen.size() >= 4) {
+                break;
+            }
+        }
+        if (chosen.size() < 3) {
+            chosen.clear();
+            String singleLine = normalized.replaceAll("\\s+", " ").trim();
+            int avgLength = Math.max(40, singleLine.length() / 3);
+            for (int i = 0; i < singleLine.length() && chosen.size() < 4; i += avgLength) {
+                String chunk = singleLine.substring(i, Math.min(singleLine.length(), i + avgLength)).trim();
+                if (StringUtils.hasText(chunk)) {
+                    chosen.add(ensureSentenceClosed(chunk));
+                }
+            }
+        }
+        while (chosen.size() < 3 && !chosen.isEmpty()) {
+            chosen.add(chosen.get(chosen.size() - 1));
+        }
+        if (chosen.isEmpty()) {
+            chosen.add("紹介: 記事の概要を静かに振り返ります。");
+        } else {
+            if (!chosen.get(0).startsWith("紹介:")) {
+                chosen.set(0, "紹介: " + chosen.get(0));
+            }
+        }
+        String calmLine = "対象: 静かなトーンで背景を理解したい方におすすめです。";
+        if (chosen.size() >= 5) {
+            chosen.set(chosen.size() - 1, calmLine);
+        } else {
+            chosen.add(calmLine);
+        }
+        if (chosen.size() > 5) {
+            chosen = chosen.subList(0, 5);
+        }
+        return String.join("\n", chosen);
+    }
+
+    private String ensureSentenceClosed(String text) {
+        if (!StringUtils.hasText(text)) {
+            return "";
+        }
+        if (text.endsWith("。") || text.endsWith("!") || text.endsWith("！") || text.endsWith("?") || text.endsWith("？")) {
+            return text;
+        }
+        return text + "。";
+    }
+
+    private String shortenContent(String text) {
+        if (!StringUtils.hasText(text)) {
+            return "";
+        }
+        if (containsMarkdownHints(text)) {
+            return trimMarkdownParagraphs(text);
+        }
+        List<String> sentences = splitIntoSentences(text);
+        if (sentences.isEmpty()) {
+            return text;
+        }
+        int limit = Math.min(10, sentences.size());
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < limit; i++) {
+            sb.append(sentences.get(i));
+            if (i != limit - 1) {
+                sb.append(" ");
+            }
+        }
+        return sb.toString();
+    }
+
+    private String trimMarkdownParagraphs(String markdown) {
+        String[] blocks = markdown.split("\\n\\s*\\n");
+        StringBuilder sb = new StringBuilder();
+        int kept = 0;
+        for (String block : blocks) {
+            if (!StringUtils.hasText(block)) {
+                continue;
+            }
+            sb.append(block.trim()).append("\n\n");
+            kept++;
+            if (kept >= 6) {
+                break;
+            }
+        }
+        return sb.toString().trim();
     }
 
     private String buildStructuredMarkdown(String text) {
@@ -183,7 +276,7 @@ public class ArticleAiService {
             sentences.stream()
                     .skip(1)
                     .limit(4)
-                    .forEach(s -> md.append("- ").append(s).append("\n"));
+                    .forEach(s -> md.append("- " ).append(s).append("\n"));
             md.append("\n");
         }
         md.append("## 詳細\n\n");
@@ -192,7 +285,7 @@ public class ArticleAiService {
             if ((i + 1) % 3 == 0 || i == sentences.size() - 1) {
                 md.append("\n\n");
             } else {
-                md.append(" ");
+                md.append(" " );
             }
         }
         return md.toString().trim();
@@ -222,10 +315,9 @@ public class ArticleAiService {
         String normalized = text.replace("\r\n", "\n");
         normalized = FIGURE_PATTERN.matcher(normalized).replaceAll("この図");
         normalized = normalized.replaceAll("[ \t]{2,}", " ");
-        normalized = normalized.replaceAll("\\n{3,}", "\n\n");
+        normalized = normalized.replaceAll("\n{3,}", "\n\n");
         return normalized.trim();
     }
-
     public record ArticleDraft(String title, String content, String summary) {
         public static ArticleDraft of(String title, String content, String summary) {
             return new ArticleDraft(title != null ? title : "", content != null ? content : "",

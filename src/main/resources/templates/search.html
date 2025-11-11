@@ -101,9 +101,13 @@
             <div class="mt-0.5 text-[15px] font-semibold text-gray-900 overflow-hidden" style="-webkit-line-clamp: 1; display: -webkit-box; -webkit-box-orient: vertical;" th:text="${#strings.isEmpty(post.title) ? 'タイトル' : post.title}"></div>
             <p th:if="${!#strings.isEmpty(post.summary)}" class="mt-1 text-sm text-gray-600 overflow-hidden whitespace-pre-line" style="-webkit-line-clamp: 2; display: -webkit-box; -webkit-box-orient: vertical;" th:text="${post.summary}"></p>
             <div class="mt-2 flex items-center gap-4 text-xs text-gray-500">
-              <span class="flex items-center gap-1">
-                <i class="fa-solid fa-bookmark text-yellow-400"></i>
-                <span th:text="${likeCounts[post.id] != null ? likeCounts[post.id] : 0}">0</span>
+              <span class="flex items-center" aria-live="polite">
+                <i class="fa-bookmark"
+                   th:class="${savedPostIds != null and savedPostIds.contains(post.id)}
+                              ? 'fa-solid fa-bookmark text-yellow-400'
+                              : 'fa-regular fa-bookmark text-gray-400'"></i>
+                <span class="sr-only"
+                      th:text="${savedPostIds != null and savedPostIds.contains(post.id) ? '保存済み' : '未保存'}">未保存</span>
               </span>
               <span class="flex items-center gap-1">
                 <i class="fa-regular fa-comment"></i>

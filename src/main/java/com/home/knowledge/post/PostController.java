@@ -60,8 +60,10 @@ public class PostController {
         var posts = repository.findAll();
         String user = (String) session.getAttribute("loginUser");
         Set<Long> readIds = Set.of();
+        Set<Long> likedPostIds = new HashSet<>();
         if (StringUtils.hasText(user)) {
             readIds = readRepository.findReadPostIds(user);
+            likedPostIds.addAll(likeRepository.findPostIdsByUser(user.trim()));
         }
         if (Boolean.TRUE.equals(unread)) {
             var readIdSet = readIds;
@@ -83,6 +85,7 @@ public class PostController {
         });
         model.addAttribute("likeCounts", likeCounts);
         model.addAttribute("readersByPost", readersByPost);
+        model.addAttribute("savedPostIds", likedPostIds);
         addNotificationsToModel(session, model);
         model.addAttribute("filterUser", null);
         return "timeline";
@@ -164,6 +167,12 @@ public class PostController {
         model.addAttribute("filterUser", username);
         Set<Long> postIds = posts.stream().map(p -> p.getId()).collect(Collectors.toSet());
         model.addAttribute("commentCounts", commentRepository.countByPostIds(postIds));
+        Set<Long> savedPostIds = new HashSet<>();
+        String viewer = (String) session.getAttribute("loginUser");
+        if (StringUtils.hasText(viewer)) {
+            savedPostIds.addAll(likeRepository.findPostIdsByUser(viewer.trim()));
+        }
+        model.addAttribute("savedPostIds", savedPostIds);
         addNotificationsToModel(session, model);
         return "timeline";
     }
@@ -237,7 +246,6 @@ public class PostController {
         model.addAttribute("postContentHtml", markdownService.render(post.getContent()));
         model.addAttribute("comments", comments);
         String loginUser = (String) session.getAttribute("loginUser");
-        model.addAttribute("likeCount", likeRepository.countByPostId(id));
         model.addAttribute("likedByMe", (loginUser != null && likeRepository.likedByUser(id, loginUser)));
         boolean isRead = false;
         if (StringUtils.hasText(loginUser)) {

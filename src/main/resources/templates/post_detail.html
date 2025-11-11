@@ -121,9 +121,12 @@
 
     <div class="mt-2 flex items-center gap-3 relative">
       <form th:action="@{${likedByMe} ? '/posts/' + ${post.id} + '/unlike' : '/posts/' + ${post.id} + '/like'}" method="post" data-like-toggle>
-        <button type="submit" class="flex items-center gap-1 text-sm font-semibold text-red-600" th:attr="data-next-message=${likedByMe} ? '保存を解除しました' : '保存しました'">
-          <i class="fa-solid fa-bookmark text-yellow-400"></i>
-          <span th:text="${likeCount}">0</span>
+        <button type="submit"
+                class="flex items-center gap-2 text-sm font-semibold text-gray-600"
+                th:attr="data-next-message=${likedByMe} ? '保存を解除しました' : '保存しました',
+                         aria-label=${likedByMe} ? '保存済み。解除する' : '未保存。保存する'">
+          <i class="fa-bookmark"
+             th:class="${likedByMe} ? 'fa-solid fa-bookmark text-yellow-400' : 'fa-regular fa-bookmark text-gray-400'"></i>
         </button>
       </form>
       <div class="flex items-center gap-1 text-xs text-gray-500 cursor-pointer" id="readerToggle">
