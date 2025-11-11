@@ -1,8 +1,12 @@
 spring:
   application:
     name: knowledge
-  h2:
-    console:
-      enabled: true
-  thymeleaf:
-    cache: false
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: update
+server:
+  port: ${PORT:8080}
