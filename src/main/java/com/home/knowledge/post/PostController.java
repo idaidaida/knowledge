@@ -14,9 +14,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -68,6 +70,9 @@ public class PostController {
         model.addAttribute("readPostIds", readIds);
         Map<Long, Integer> likeCounts = new HashMap<>();
         Map<Long, List<String>> readersByPost = new HashMap<>();
+        Set<Long> postIds = posts.stream().map(p -> p.getId()).collect(Collectors.toSet());
+        Map<Long, Integer> commentCounts = commentRepository.countByPostIds(postIds);
+        model.addAttribute("commentCounts", commentCounts);
         posts.forEach(p -> {
             likeCounts.put(p.getId(), likeRepository.countByPostId(p.getId()));
             readersByPost.put(p.getId(), readRepository.findReadersByPostId(p.getId()));
@@ -79,11 +84,83 @@ public class PostController {
         return "timeline";
     }
 
+    @GetMapping("/search")
+    public String search(@RequestParam(required = false) String author,
+                         @RequestParam(required = false) String query,
+                         @RequestParam(required = false) String saved,
+                         @RequestParam(required = false) String read,
+                         jakarta.servlet.http.HttpSession session,
+                         Model model) {
+        List<Post> posts = new ArrayList<>(repository.findAll());
+        String loginUser = (String) session.getAttribute("loginUser");
+        Boolean savedFilter = parseFlag(saved);
+        Boolean readFilter = parseFlag(read);
+        Set<Long> likedPostIds = new HashSet<>();
+        Set<Long> readIds = new HashSet<>();
+        if (StringUtils.hasText(loginUser)) {
+            likedPostIds.addAll(likeRepository.findPostIdsByUser(loginUser.trim()));
+            readIds.addAll(readRepository.findReadPostIds(loginUser.trim()));
+        }
+        if (StringUtils.hasText(author)) {
+            String needle = author.trim().toLowerCase(Locale.ROOT);
+            posts.removeIf(p -> p.getUsername() == null || !p.getUsername().toLowerCase(Locale.ROOT).contains(needle));
+        }
+        if (StringUtils.hasText(query)) {
+            String needle = query.trim().toLowerCase(Locale.ROOT);
+            posts.removeIf(p -> {
+                String titleVal = p.getTitle() != null ? p.getTitle().toLowerCase(Locale.ROOT) : "";
+                String contentVal = p.getContent() != null ? p.getContent().toLowerCase(Locale.ROOT) : "";
+                return !titleVal.contains(needle) && !contentVal.contains(needle);
+            });
+        }
+        if (savedFilter != null) {
+            if (!StringUtils.hasText(loginUser)) {
+                posts.clear();
+            } else if (savedFilter) {
+                posts.removeIf(p -> !likedPostIds.contains(p.getId()));
+            } else {
+                posts.removeIf(p -> likedPostIds.contains(p.getId()));
+            }
+        }
+        if (readFilter != null) {
+            if (!StringUtils.hasText(loginUser)) {
+                posts.clear();
+            } else if (readFilter) {
+                posts.removeIf(p -> !readIds.contains(p.getId()));
+            } else {
+                posts.removeIf(p -> readIds.contains(p.getId()));
+            }
+        }
+        Set<Long> postIds = posts.stream().map(Post::getId).collect(Collectors.toSet());
+        Map<Long, Integer> commentCounts = commentRepository.countByPostIds(postIds);
+        Map<Long, Integer> likeCounts = new HashMap<>();
+        Map<Long, List<String>> readersByPost = new HashMap<>();
+        posts.forEach(p -> {
+            likeCounts.put(p.getId(), likeRepository.countByPostId(p.getId()));
+            readersByPost.put(p.getId(), readRepository.findReadersByPostId(p.getId()));
+        });
+        model.addAttribute("posts", posts);
+        model.addAttribute("likeCounts", likeCounts);
+        model.addAttribute("commentCounts", commentCounts);
+        model.addAttribute("readersByPost", readersByPost);
+        model.addAttribute("savedPostIds", likedPostIds);
+        model.addAttribute("authorFilter", author);
+        model.addAttribute("queryFilter", query);
+        model.addAttribute("savedFilter", savedFilter);
+        model.addAttribute("readFilter", readFilter);
+        addNotificationsToModel(session, model);
+        model.addAttribute("filterUser", null);
+        return "search";
+    }
+
     @GetMapping("/users/{username}")
-    public String userTimeline(@PathVariable String username, Model model) {
+    public String userTimeline(@PathVariable String username, jakarta.servlet.http.HttpSession session, Model model) {
         var posts = repository.findByUsername(username);
         model.addAttribute("posts", posts);
         model.addAttribute("filterUser", username);
+        Set<Long> postIds = posts.stream().map(p -> p.getId()).collect(Collectors.toSet());
+        model.addAttribute("commentCounts", commentRepository.countByPostIds(postIds));
+        addNotificationsToModel(session, model);
         return "timeline";
     }
 
@@ -247,6 +324,16 @@ public class PostController {
             model.addAttribute("newPostIds", Set.of());
             model.addAttribute("newCommentPosts", Set.of());
         }
+    }
+
+    private Boolean parseFlag(String value) {
+        if ("1".equals(value)) {
+            return true;
+        }
+        if ("0".equals(value)) {
+            return false;
+        }
+        return null;
     }
 
     @GetMapping("/posts/new")

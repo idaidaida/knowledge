@@ -71,6 +71,20 @@ public class CommentRepository {
         return jdbcTemplate.update("UPDATE comments SET content = ? WHERE id = ?", content, id);
     }
 
+    public Map<Long, Integer> countByPostIds(Collection<Long> postIds) {
+        Map<Long, Integer> counts = new HashMap<>();
+        if (postIds == null || postIds.isEmpty()) {
+            return counts;
+        }
+        String inSql = String.join(",", Collections.nCopies(postIds.size(), "?"));
+        String sql = "SELECT post_id, COUNT(*) AS cnt FROM comments WHERE post_id IN (" + inSql + ") GROUP BY post_id";
+        List<Object> args = new ArrayList<>(postIds);
+        jdbcTemplate.query(sql, args.toArray(), rs -> {
+            counts.put(rs.getLong("post_id"), rs.getInt("cnt"));
+        });
+        return counts;
+    }
+
     public int delete(long id) {
         return jdbcTemplate.update("DELETE FROM comments WHERE id = ?", id);
     }
