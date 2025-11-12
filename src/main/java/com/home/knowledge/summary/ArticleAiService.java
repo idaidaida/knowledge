@@ -61,7 +61,7 @@ public class ArticleAiService {
         Map<String, Object> payload = Map.of(
                 "model", "gpt-4o-mini",
                 "temperature", 0.3,
-                "max_tokens", 1600,
+                "max_tokens", 2000,
                 "messages", List.of(
                         Map.of("role", "system", "content", "あなたは難聴の子供の子育てをしている親向けに有益なネットの情報をまとめている記者です。"),
                         Map.of("role", "user", "content", prompt)));
@@ -153,7 +153,7 @@ public class ArticleAiService {
                 以下のキーを含むJSONでTitleと紹介文と詳細を返してください。
                 - title: 記事のtitle
                 - summary: 記事の紹介文（300文字以内）
-                - content: 記事の詳細。contentはMarkdownの記法で書いてください。
+                - content: 記事の詳細。contentはMarkdownの記法で書いてください。長すぎる場合は要約して。
                 """);
         prompt.append("\n\n# 記事本文\n").append(summaryText);
         return prompt.toString();
