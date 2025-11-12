@@ -311,6 +311,27 @@ public class PostController {
         return "redirect:" + (ref != null ? ref : "/");
     }
 
+    @GetMapping(value = "/notifications/feed", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public Map<String, Object> fetchNotifications(jakarta.servlet.http.HttpSession session) {
+        String user = (String) session.getAttribute("loginUser");
+        if (!StringUtils.hasText(user)) {
+            return Map.of("count", 0, "items", List.of());
+        }
+        int count = notificationRepository.countUnread(user);
+        var list = notificationRepository.listUnread(user, 10);
+        return Map.of(
+                "count", count,
+                "items", toWebNotifications(list)
+        );
+    }
+
+    private List<WebNotificationPayload> toWebNotifications(List<NotificationRepository.NotificationRow> rows) {
+        return rows.stream()
+                .map(WebNotificationPayload::fromRow)
+                .collect(Collectors.toList());
+    }
+
     private void addNotificationsToModel(jakarta.servlet.http.HttpSession session, Model model) {
         String user = (String) session.getAttribute("loginUser");
         if (org.springframework.util.StringUtils.hasText(user)) {
@@ -329,11 +350,13 @@ public class PostController {
             }
             model.addAttribute("newPostIds", newPostIds);
             model.addAttribute("newCommentPosts", newCommentPosts);
+            model.addAttribute("notificationPayloads", toWebNotifications(list));
         } else {
             model.addAttribute("notificationCount", 0);
             model.addAttribute("notifications", java.util.List.of());
             model.addAttribute("newPostIds", Set.of());
             model.addAttribute("newCommentPosts", Set.of());
+            model.addAttribute("notificationPayloads", java.util.List.of());
         }
     }
 
@@ -489,5 +512,20 @@ public class PostController {
         }
         commentRepository.delete(id);
         return "redirect:/posts/" + c.getPostId();
+    }
+
+    private record WebNotificationPayload(
+            String kind,
+            long refId,
+            String title,
+            String body,
+            String actor,
+            Long postId,
+            Long createdAtMillis
+    ) {
+        static WebNotificationPayload fromRow(NotificationRepository.NotificationRow row) {
+            Long ts = row.createdAt != null ? row.createdAt.getTime() : null;
+            return new WebNotificationPayload(row.kind, row.refId, row.title, row.body, row.actor, row.postId, ts);
+        }
     }
 }

@@ -21,17 +21,23 @@
             <path d="M12 2.25a3.75 3.75 0 00-3.75 3.75v1.098c0 .414-.168.812-.467 1.102A6.724 6.724 0 006 13.5v.75h12v-.75a6.724 6.724 0 00-1.783-5.3 1.5 1.5 0 01-.467-1.102V6A3.75 3.75 0 0012 2.25z"/>
             <path d="M8.25 16.5h7.5a3.75 3.75 0 11-7.5 0z"/>
           </svg>
-          <span th:if="${notificationCount != null and notificationCount > 0}" class="absolute -top-0.5 -right-0.5 min-w-[1rem] h-4 px-1 rounded-full bg-red-600 text-white text-[10px] leading-4 text-center" th:text="${notificationCount}">0</span>
+          <span id="notifyBadge"
+                class="absolute -top-0.5 -right-0.5 min-w-[1rem] h-4 px-1 rounded-full bg-red-600 text-white text-[10px] leading-4 text-center hidden"
+                th:classappend="${notificationCount != null and notificationCount > 0} ? '' : ' hidden'"
+                th:text="${notificationCount != null ? notificationCount : 0}">0</span>
         </button>
         <div id="notifyMenu" class="hidden absolute right-0 mt-1 w-72 max-h-80 overflow-auto bg-white border border-gray-200 rounded-md shadow-lg p-2">
           <div class="text-xs text-gray-500 mb-1">通知</div>
-          <div th:if="${#lists.isEmpty(notifications)}" class="text-sm text-gray-600 p-2">新しい通知はありません</div>
-          <a th:each="n : ${notifications}"
-             th:href="${n.kind == 'POST' ? '/posts/' + n.refId : '/posts/' + n.postId}"
-             class="block px-2 py-1.5 rounded hover:bg-gray-50">
-            <span class="text-xs text-gray-500" th:text="${#dates.format(n.createdAt, 'MM/dd HH:mm')}">00/00 00:00</span>
-            <div class="text-sm text-gray-900" th:text="${n.kind == 'POST' ? ('新規投稿: ' + (!#strings.isEmpty(n.title) ? n.title : #strings.abbreviate(n.body, 24))) : ('新規コメント: ' + n.actor)}">通知</div>
-          </a>
+          <div id="notifyList">
+            <div th:if="${#lists.isEmpty(notifications)}" class="text-sm text-gray-600 p-2">新しい通知はありません</div>
+            <th:block th:each="n : ${notifications}">
+              <a th:href="${n.kind == 'POST' ? '/posts/' + n.refId : '/posts/' + n.postId}"
+                 class="block px-2 py-1.5 rounded hover:bg-gray-50">
+                <span class="text-xs text-gray-500" th:text="${#dates.format(n.createdAt, 'MM/dd HH:mm')}">00/00 00:00</span>
+                <div class="text-sm text-gray-900" th:text="${n.kind == 'POST' ? ('新規投稿: ' + (!#strings.isEmpty(n.title) ? n.title : #strings.abbreviate(n.body, 24))) : ('新規コメント ' + n.actor)}">通知</div>
+              </a>
+            </th:block>
+          </div>
           <form method="post" action="/notifications/seen" class="mt-2 text-right">
             <button type="submit" class="text-xs text-blue-600 underline underline-offset-2">すべて既読</button>
           </form>
@@ -160,6 +166,205 @@
         }
       });
     });
+  })();
+</script>
+
+<script th:inline="javascript">
+  (function(){
+    const feedUrl = '/notifications/feed';
+    const storageKey = 'ks-webnotify-v1';
+    const pollMs = 45000;
+    const supportsNotification = 'Notification' in window;
+    const badgeEl = document.getElementById('notifyBadge');
+    const listEl = document.getElementById('notifyList');
+    const initialItems = /*[[${notificationPayloads}]]*/ [];
+    const initialCount = /*[[${notificationCount}]]*/ 0;
+
+    let shownKeys = loadShownKeys();
+    handleResponse({count: initialCount, items: initialItems}, true);
+    startPolling();
+    if (supportsNotification && Notification.permission === 'default') {
+      Notification.requestPermission().catch(()=>{});
+    }
+
+    function startPolling() {
+      fetchLatest();
+      setInterval(fetchLatest, pollMs);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          fetchLatest();
+        }
+      });
+    }
+
+    async function fetchLatest() {
+      try {
+        const res = await fetch(feedUrl, { headers: { 'Accept': 'application/json' } });
+        if (!res.ok) return;
+        const data = await res.json();
+        handleResponse(data, false);
+      } catch (err) {
+        console.error('Notification fetch failed', err);
+      }
+    }
+
+    function handleResponse(payload, initial) {
+      if (!payload) return;
+      updateBadge(payload.count || 0);
+      renderMenu(Array.isArray(payload.items) ? payload.items : []);
+      const fresh = diffNew(payload.items || [], initial);
+      if (fresh.length > 0) {
+        fresh.forEach(showBrowserNotification);
+      }
+    }
+
+    function updateBadge(count) {
+      if (!badgeEl) return;
+      if (count > 0) {
+        badgeEl.textContent = count;
+        badgeEl.classList.remove('hidden');
+      } else {
+        badgeEl.textContent = '0';
+        badgeEl.classList.add('hidden');
+      }
+    }
+
+    function renderMenu(items) {
+      if (!listEl) return;
+      if (!items.length) {
+        listEl.innerHTML = '<div class="text-sm text-gray-600 p-2">新しい通知はありません</div>';
+        return;
+      }
+      const html = items.map(item => {
+        const url = buildUrl(item);
+        const time = formatTime(item.createdAtMillis);
+        const label = escapeHtml(buildLabel(item));
+        return `<a href="${url}" class="block px-2 py-1.5 rounded hover:bg-gray-50" data-kind="${item.kind || ''}" data-ref="${item.refId || ''}">
+                  <span class="text-xs text-gray-500">${time}</span>
+                  <div class="text-sm text-gray-900">${label}</div>
+                </a>`;
+      }).join('');
+      listEl.innerHTML = html;
+    }
+
+    function buildLabel(item) {
+      if (!item) return '通知があります';
+      if (item.kind === 'POST') {
+        const text = pickText(item.title, item.body);
+        return text ? `新規投稿: ${text}` : '新しい記事が投稿されました';
+      }
+      const who = item.actor && item.actor.trim() ? item.actor.trim() : '誰か';
+      const text = pickText('', item.body);
+      return text ? `新規コメント ${who}: ${text}` : `新規コメント ${who}`;
+    }
+
+    function pickText(title, body) {
+      if (title && title.trim()) {
+        return title.trim();
+      }
+      if (body && body.trim()) {
+        const clean = body.trim().replace(/\s+/g, ' ');
+        return clean.length > 60 ? `${clean.slice(0, 57)}…` : clean;
+      }
+      return '';
+    }
+
+    function diffNew(items, initial) {
+      if (!Array.isArray(items)) return [];
+      const fresh = [];
+      let dirty = false;
+      items.forEach(item => {
+        const key = keyFor(item);
+        if (!key || shownKeys.has(key)) {
+          return;
+        }
+        shownKeys.add(key);
+        dirty = true;
+        if (!initial) {
+          fresh.push(item);
+        }
+      });
+      if (dirty) {
+        persistShown();
+      }
+      return fresh;
+    }
+
+    function showBrowserNotification(item) {
+      if (!supportsNotification || Notification.permission !== 'granted' || !item) {
+        return;
+      }
+      const title = item.kind === 'POST' ? '新しい記事が届きました' : '新しいメッセージがあります';
+      const body = buildLabel(item);
+      const target = buildUrl(item);
+      try {
+        const notification = new Notification(title, {
+          body,
+          tag: keyFor(item),
+          data: { url: target }
+        });
+        notification.onclick = event => {
+          event.preventDefault();
+          window.focus();
+          if (notification.data && notification.data.url) {
+            window.location.href = notification.data.url;
+          }
+          notification.close();
+        };
+      } catch (err) {
+        console.warn('Notification blocked', err);
+      }
+    }
+
+    function buildUrl(item) {
+      if (!item) return '/';
+      if (item.kind === 'POST') {
+        return `/posts/${item.refId}`;
+      }
+      const postId = item.postId != null ? item.postId : item.refId;
+      return `/posts/${postId || ''}`;
+    }
+
+    function formatTime(ms) {
+      if (!ms) return '';
+      const date = new Date(ms);
+      const pad = v => String(v).padStart(2, '0');
+      return `${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    }
+
+    function keyFor(item) {
+      if (!item) return null;
+      return `${item.kind || 'UNKNOWN'}:${item.refId || 0}`;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/[&<>\"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c] || c));
+    }
+
+    function loadShownKeys() {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (!raw) return new Set();
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          return new Set(arr);
+        }
+      } catch (err) {
+        console.warn('Failed to read notification cache', err);
+      }
+      return new Set();
+    }
+
+    function persistShown() {
+      try {
+        const trimmed = Array.from(shownKeys).slice(-80);
+        shownKeys = new Set(trimmed);
+        localStorage.setItem(storageKey, JSON.stringify(trimmed));
+      } catch (err) {
+        console.warn('Failed to persist notification cache', err);
+      }
+    }
   })();
 </script>
 

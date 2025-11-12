@@ -326,6 +326,19 @@
         const summaryInput = document.getElementById("generatedSummary");
         const contentInput = document.getElementById("generatedContent");
         const submitBtn = document.getElementById("submitBtn");
+        const postForm = document.getElementById("postForm");
+
+        if (postForm && submitBtn) {
+          postForm.addEventListener("submit", () => {
+            if (submitBtn.disabled) {
+              return;
+            }
+            submitBtn.dataset.originalText = submitBtn.textContent;
+            submitBtn.textContent = "投稿中...";
+            submitBtn.classList.add("opacity-60", "cursor-not-allowed");
+            submitBtn.setAttribute("disabled", "true");
+          });
+        }
 
         if (!btn || !linkInput) return;
 

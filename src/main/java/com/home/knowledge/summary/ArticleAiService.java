@@ -66,6 +66,7 @@ public class ArticleAiService {
                 "messages", List.of(
                         Map.of("role", "system", "content", "あなたは難聴の子供の子育てをしている親向けに有益なネットの情報をまとめている記者です。"),
                         Map.of("role", "user", "content", prompt)));
+        boolean isFaile = false;
         try {
             String body = objectMapper.writeValueAsString(payload);
             HttpRequest request = HttpRequest.newBuilder()
@@ -99,13 +100,20 @@ public class ArticleAiService {
                 return draft;
             }
         } catch (IOException e) {
+            isFaile = true;
             log.warn("Failed to summarize article {} because of IO error", url, e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             log.warn("Summarization interrupted for {}", url, e);
         }
-        String structured = buildStructuredMarkdown(normalizedText);
-        String fallbackSummary = createSummaryFallback(normalizedText);
+        String structured = "";
+        String fallbackSummary = "";
+        if (isFaile) {
+            fallbackSummary = "自動生成に失敗しました。適当にコメントを書いてください。";
+            structured = "自動生成に失敗しました。適当にコメントを書いてください。";
+        }
+        structured = buildStructuredMarkdown(normalizedText);
+        fallbackSummary = createSummaryFallback(normalizedText);
         ArticleDraft draft = ArticleDraft.of(title, structured, fallbackSummary);
         debugDraft("fallback:unexpected-error", draft.title(), draft.summary(), draft.content());
         return draft;
