@@ -62,6 +62,7 @@ public class ArticleAiService {
                 "model", "gpt-4o-mini",
                 "temperature", 0.3,
                 "max_tokens", 2000,
+                "response_format", Map.of("type", "json_object"),
                 "messages", List.of(
                         Map.of("role", "system", "content", "あなたは難聴の子供の子育てをしている親向けに有益なネットの情報をまとめている記者です。"),
                         Map.of("role", "user", "content", prompt)));
@@ -142,12 +143,12 @@ public class ArticleAiService {
                 以下の記事を読み、以下の情報をまとめてください。
                 - 記事のTitle
                 - 記事の紹介文
-                - 記事の詳細
+                - 記事の要約
 
                 # 指示詳細
                 記事のTitleは、記事の内容に基づいて端的な表現をあなたが考えてください。
                 記事の紹介文は、その記事が子育てをしている親にとってどのように有益かを300文字以内で簡潔に説明してください。
-                記事の詳細は、その記事の内容をわかりやすくまとめてください。ある程度詳細にまとめてほしいです。長文になる場合は、章立てや箇条書きなど見やすくなるように工夫してください。
+                記事の詳細は、その記事の要約を箇条書きでまとめてほしいです。1000文字以内にしてください。
 
                 # アウトプット
                 以下のキーを含むJSONでTitleと紹介文と詳細を返してください。
