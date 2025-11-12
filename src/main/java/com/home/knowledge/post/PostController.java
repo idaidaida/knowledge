@@ -288,9 +288,6 @@ public class PostController {
     public Map<String, String> preview(@RequestParam(name = "linkUrl") String linkUrl) {
         var draft = summaryService.buildDraft(linkUrl.trim());
         String summary = draft.summary();
-        if (summary.length() > 300) {
-            summary = summary.substring(0, 300);
-        }
         summary = summary.replaceAll("\\s+", " ").trim();
         Map<String, String> body = new HashMap<>();
         body.put("title", draft.title());
@@ -301,8 +298,7 @@ public class PostController {
 
     private String normalizeSummary(String raw) {
         if (!StringUtils.hasText(raw)) return "";
-        String trimmed = raw.trim().replaceAll("\\s+", " ");
-        return trimmed.length() > 300 ? trimmed.substring(0, 300) : trimmed;
+        return raw.trim().replaceAll("\\s+", " ");
     }
 
     @org.springframework.web.bind.annotation.PostMapping("/notifications/seen")
