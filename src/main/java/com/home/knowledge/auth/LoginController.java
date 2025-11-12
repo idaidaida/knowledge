@@ -1,6 +1,8 @@
 package com.home.knowledge.auth;
 
 import com.home.knowledge.notify.NotificationRepository;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -38,6 +40,7 @@ public class LoginController {
             @RequestParam("id") String id,
             @RequestParam("password") String password,
             HttpSession session,
+            HttpServletResponse response,
             Model model,
             RedirectAttributes redirectAttributes
     ) {
@@ -51,14 +54,23 @@ public class LoginController {
         }
         String uid = id.trim();
         session.setAttribute("loginUser", uid);
+        Cookie cookie = new Cookie("isLogin", uid);
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(60 * 60 * 24 * 30);
+        response.addCookie(cookie);
         notificationRepository.upsertLastSeen(uid, Timestamp.from(Instant.now()));
         redirectAttributes.addFlashAttribute("error", null);
         return "redirect:/";
     }
 
     @GetMapping("/logout")
-    public String logout(HttpSession session) {
+    public String logout(HttpSession session, HttpServletResponse response) {
         session.removeAttribute("loginUser");
+        Cookie cookie = new Cookie("isLogin", "");
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+        response.addCookie(cookie);
         return "redirect:/";
     }
 }
